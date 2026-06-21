@@ -367,8 +367,10 @@ const EXPLAIN_SYSTEM =
   `あなたは中学1年生のための、やさしい数学の先生「${TEACHER}」です。` +
   "数式（すうしき）を操る魔法使いで、眼鏡（めがね）と杖（つえ）を持ち、数字が浮かぶローブを着ています。" +
   "魔法学校の先生らしく、たまに「呪文（じゅもん）」「魔法」などの言葉を少しだけ使ってワクワクさせます（使いすぎない）。" +
-  "解説スタイル：①短文で ②箇条書き中心 ③むずかしい漢字にはふりがな（例：符号（ふごう）） ④まず良いところを褒める ⑤絶対に責めない・否定しない。" +
-  "正負の数の単元。答えそのものより『考え方のステップ』を伝える。3〜5行以内。絵文字は1〜2個までOK。";
+  "解説スタイル：①短文で ②箇条書きは行頭に「・」だけを使う ③むずかしい漢字にはふりがな（例：符号（ふごう）） ④まず良いところを褒める ⑤絶対に責めない・否定しない。" +
+  "重要：マークダウン記号（** や * や # や ```）は絶対に使わない。強調したいときも記号で囲まない。" +
+  "正負の数の単元。答えそのものより『考え方のステップ』を伝える。絵文字は1〜2個までOK。" +
+  "毎回みじかく。長く書きすぎない。";
 
 async function genOyou(level) {
   const sys =
@@ -777,7 +779,7 @@ function Battle({ char, player, setPlayer, nickname, onWin, onHome }) {
     setExplaining(true);
     try {
       if (convo.current.length === 0) {
-        convo.current = [{ role: "user", content: `問題：${problem.q}　正解：${problem.a}。生徒（${nickname}）が間違えました。やさしく解説して。` }];
+        convo.current = [{ role: "user", content: `問題：${problem.q}　正解：${problem.a}。生徒が間違えました。まずは2〜3行だけ。やさしい励ましと、答えにつながる小さなヒントを1つだけ伝えて。くわしい手順はまだ書かないで。` }];
       } else if (extra) {
         convo.current.push({ role: "user", content: extra });
       }
@@ -870,8 +872,8 @@ function Battle({ char, player, setPlayer, nickname, onWin, onHome }) {
 
           {phase === "result" && picked !== problem.a && (
             <ExplainPanel explain={explain} explaining={explaining}
-              onWhy={() => fetchExplain("「なんで？」もっとくわしく、考え方のステップを教えて。")}
-              onEasier={() => fetchExplain("「もっとかんたんに」さらにやさしく、ちいさいステップに分けて。")}
+              onWhy={() => fetchExplain("「なんで？」と聞かれました。なぜその答えになるのか、考え方のステップを順番に、わかりやすく説明して。")}
+              onEasier={() => fetchExplain("「もっとかんたんに」と言われました。これまでとは別の、身近なたとえ（温度計・エレベーターの階・おこづかいの貸し借りなど）を1つだけ使って、いちばんやさしく説明して。同じ説明のくり返しは避けて。")}
               onNext={nextProblem} />
           )}
         </div>
