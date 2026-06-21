@@ -10,8 +10,6 @@
   #root { width: 100%; max-width: 480px; }
   #boot { color: #c9bdf0; font-family: sans-serif; text-align: center; padding-top: 80px; }
 </style>
-
-<!-- React / lucide-react を読み込む地図（import map）。Babelより前に置く -->
 <script type="importmap">
 {
   "imports": {
@@ -21,14 +19,10 @@
   }
 }
 </script>
-
-<!-- JSXをブラウザで変換するBabel -->
 <script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
 </head>
 <body>
   <div id="root"><div id="boot">よみこみ中…</div></div>
-
-  <!-- アプリ本体（JSX）。data-type="module" で import が使えるようにする -->
   <script type="text/babel" data-type="module" data-presets="react">
 import React, { useState, useEffect, useRef } from "react";
 import { Coins, Sparkles, Star, Heart, Lightbulb, ArrowRight, RefreshCw, Lock } from "lucide-react";
@@ -351,15 +345,19 @@ function makeChoices(answer) {
   return shuffle([...set].slice(0, 4));
 }
 
-/* ================= Claude API ================= */
+/* ================= AI（プロキシ経由）================= */
+/* 受付係（Cloudflare Worker）のURL。ここ1か所だけで定義する。 */
+const AI_PROXY_URL = "https://rinogical-ai.jet-speeder-herberty.workers.dev";
+
 async function callClaude(messages, system) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await fetch(AI_PROXY_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1000, system, messages }),
+    body: JSON.stringify({ system: system, messages: messages }),
   });
   const data = await res.json();
-  return data.content.filter(b => b.type === "text").map(b => b.text).join("\n");
+  if (!res.ok || data.error) throw new Error(data.error || ("proxy " + res.status));
+  return data.text || "";
 }
 
 /* 先生キャラの名前は全フェーズ共通・変更不可。ここ1か所だけで定義する。 */
