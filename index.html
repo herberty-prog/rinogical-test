@@ -345,6 +345,27 @@ function makeChoices(answer) {
   return shuffle([...set].slice(0, 4));
 }
 
+/* 回答方式の決定：答えが整数の問題だけ「入力」にできる（分数・小数・式は4択）。
+   レベルが上がるほど入力の比率を上げる（Lv1-2=4択のみ / Lv3-4=約30% / Lv5+=約50%）。 */
+function pickAnswerMode(level, ans) {
+  if (!Number.isInteger(ans)) return "choice";
+  const p = level >= 5 ? 0.5 : level >= 3 ? 0.3 : 0;
+  return Math.random() < p ? "input" : "choice";
+}
+
+/* 入力をやさしく解釈：全角数字・全角マイナス・空白を吸収して整数に */
+function parseInput(s) {
+  if (s == null) return null;
+  let t = String(s).trim()
+    .replace(/[０-９]/g, d => "０１２３４５６７８９".indexOf(d).toString())
+    .replace(/[ー－−—‐]/g, "-")
+    .replace(/[＋]/g, "+")
+    .replace(/\s/g, "");
+  if (t === "" || t === "-" || t === "+") return null;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : null;
+}
+
 /* ================= AI（プロキシ経由）================= */
 /* 受付係（Cloudflare Worker）のURL。ここ1か所だけで定義する。 */
 const AI_PROXY_URL = "https://rinogical-ai.jet-speeder-herberty.workers.dev";
@@ -756,6 +777,8 @@ function Battle({ char, player, setPlayer, nickname, onWin, onHome }) {
   const [bossHit, setBossHit] = useState(false);
   const [phase, setPhase] = useState("loading"); // loading | answer | result
   const [picked, setPicked] = useState(null);
+  const [mode, setMode] = useState("choice");   // "choice" か "input"
+  const [inputVal, setInputVal] = useState("");
   const [explain, setExplain] = useState("");
   const [explaining, setExplaining] = useState(false);
   const convo = useRef([]);
@@ -771,7 +794,9 @@ function Battle({ char, player, setPlayer, nickname, onWin, onHome }) {
       else p = genKihon(lv);
     } catch { p = genHyojun(); }
     const ch = p.choices || makeChoices(p.a);
-    setProblem(p); setChoices(ch); setPhase("answer");
+    setProblem(p); setChoices(ch);
+    setMode(pickAnswerMode(player.level, p.a)); setInputVal("");
+    setPhase("answer");
   }
   useEffect(() => { nextProblem(); /* eslint-disable-next-line */ }, []);
 
@@ -814,6 +839,16 @@ function Battle({ char, player, setPlayer, nickname, onWin, onHome }) {
     }
   }
 
+  function submitInput() {
+    if (phase !== "answer") return;
+    const v = parseInput(inputVal);
+    if (v === null) return; // 空や記号だけのときは何もしない
+    answer(v);
+  }
+  function toggleSign() {
+    setInputVal(s => (s.startsWith("-") ? s.slice(1) : "-" + s));
+  }
+
   const dead = hp <= 0;
 
   return (
@@ -849,19 +884,43 @@ function Battle({ char, player, setPlayer, nickname, onWin, onHome }) {
             <span style={{ fontSize: 12, color: C.inkDim }}>正解で攻撃 / 不正解でダメージ</span>
           </div>
           <div style={{ textAlign: "center", fontSize: 28, fontWeight: 900, margin: "10px 0 18px", letterSpacing: 1 }}>{problem.q}{problem.kind === "応用" ? "" : " ="}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            {choices.map((c, i) => {
-              const isCorrect = c === problem.a, isPicked = c === picked;
-              let bg = C.lav;
-              if (phase === "result") { if (isCorrect) bg = C.mint; else if (isPicked) bg = C.danger; else bg = "#5b5080"; }
-              return (
-                <button key={i} className="rino-btn" disabled={phase === "result"} onClick={() => answer(c)}
-                  style={{ ...clay(bg), border: "none", padding: "16px 0", fontSize: 22, fontWeight: 900, color: C.bg0, cursor: phase === "result" ? "default" : "pointer" }}>
-                  {c}
-                </button>
-              );
-            })}
-          </div>
+          {mode === "input" ? (
+            <div>
+              {phase !== "result" && (
+                <div style={{ fontSize: 12, color: C.inkDim, textAlign: "center", marginBottom: 8 }}>
+                  数字で答えてね（マイナスは ± ボタン）
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                <button className="rino-btn" onClick={toggleSign} disabled={phase === "result"}
+                  style={{ ...clay(C.butter), border: "none", width: 56, fontSize: 22, fontWeight: 900, color: C.bg0, cursor: phase === "result" ? "default" : "pointer" }}>±</button>
+                <input type="text" inputMode="numeric" value={inputVal}
+                  onChange={e => setInputVal(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") submitInput(); }}
+                  disabled={phase === "result"} placeholder="答えを入力"
+                  style={{ ...clay(C.bg2, false), flex: 1, border: "none", outline: "none", color: C.ink, fontSize: 24, fontWeight: 900, textAlign: "center", padding: "12px 10px" }} />
+              </div>
+              {phase !== "result"
+                ? <Btn full bg={C.lav} onClick={submitInput}>こたえる</Btn>
+                : <div style={{ textAlign: "center", fontWeight: 800, color: picked === problem.a ? C.mint : C.danger }}>
+                    あなたの答え：{picked}{picked === problem.a ? " ⭕" : ` ／ 正解は ${problem.a}`}
+                  </div>}
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {choices.map((c, i) => {
+                const isCorrect = c === problem.a, isPicked = c === picked;
+                let bg = C.lav;
+                if (phase === "result") { if (isCorrect) bg = C.mint; else if (isPicked) bg = C.danger; else bg = "#5b5080"; }
+                return (
+                  <button key={i} className="rino-btn" disabled={phase === "result"} onClick={() => answer(c)}
+                    style={{ ...clay(bg), border: "none", padding: "16px 0", fontSize: 22, fontWeight: 900, color: C.bg0, cursor: phase === "result" ? "default" : "pointer" }}>
+                    {c}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {phase === "result" && picked === problem.a && (
             <div style={{ textAlign: "center", marginTop: 14 }}>
