@@ -184,8 +184,23 @@ function Keyframes() {
   );
 }
 
+/* ================= 素材パス（画像をここに置けば自動で差し替わる）=================
+   ・置き場所：リポジトリ直下の assets/ フォルダ（index.html と同じ階層に作る）。
+   ・ファイルが無い／読めない場合は、今までのSVGが自動で表示される（真っ白にならない）。
+   ・1枚ずつ足してOK。足したパスのキャラ・ボスだけ絵に入れ替わる。
+   ・背景・Lottie は次のステップで実装予定（ここに足していく）。 */
+const ASSET_BASE = "assets/";
+const assetUrl = (rel) => (rel ? ASSET_BASE + rel : null);
+const ASSETS = {
+  bosses: {
+    darknumber: "bosses/darknumber.png", // ダーク・ナンバー（正負の数のボス）
+  },
+  // backgrounds: { ... } ← 次のステップで追加
+};
+
 /* ================= キャラクター（猫耳・セーラー）================= */
-function Hero({ mood = "idle", accent = C.lav, size = 200 }) {
+function Hero({ mood = "idle", accent = C.lav, size = 200, src = null }) {
+  const [imgErr, setImgErr] = useState(false);
   const anim =
     mood === "happy" ? "rino-happy .9s ease" :
     mood === "sad" ? "rino-sad .7s ease" :
@@ -194,6 +209,20 @@ function Hero({ mood = "idle", accent = C.lav, size = 200 }) {
     mood === "happy" ? "M78 138 Q100 168 122 138" :
     mood === "sad" ? "M80 150 Q100 134 120 150" :
     "M84 142 Q100 156 116 142";
+  // 画像があればそれを表示（読み込み失敗時は下のSVGに自動フォールバック）
+  if (src && !imgErr) {
+    return (
+      <div style={{ width: size, height: size, position: "relative" }}>
+        {mood === "happy" && [0, 1, 2, 3].map(i => (
+          <Sparkles key={i} size={20 + i * 4} color={C.gold}
+            style={{ position: "absolute", top: 10 + (i % 2) * 120, left: i < 2 ? -6 : size - 26,
+              animation: `rino-spark .9s ease ${i * 0.08}s` }} />
+        ))}
+        <img src={src} alt="" width={size} height={size} onError={() => setImgErr(true)}
+          style={{ width: size, height: size, objectFit: "contain", display: "block", animation: anim }} />
+      </div>
+    );
+  }
   return (
     <div style={{ width: size, height: size, position: "relative" }}>
       {mood === "happy" && [0, 1, 2, 3].map(i => (
@@ -237,7 +266,9 @@ function Hero({ mood = "idle", accent = C.lav, size = 200 }) {
 }
 
 /* ================= ボス：ダーク・ナンバー ================= */
-function DarkNumber({ hit }) {
+function DarkNumber({ hit, src = assetUrl(ASSETS.bosses.darknumber) }) {
+  const [imgErr, setImgErr] = useState(false);
+  const useImg = src && !imgErr;
   const nums = ["7", "-3", "5", "-8", "0", "-1", "9", "-4"];
   return (
     <div style={{ width: 240, height: 200, position: "relative" }}>
@@ -250,6 +281,10 @@ function DarkNumber({ hit }) {
         }}>{n}</span>
       ))}
       <div style={{ animation: hit ? "rino-hit .45s ease" : "rino-slime 2.6s ease-in-out infinite" }}>
+        {useImg ? (
+          <img src={src} alt="" width={200} height={170} onError={() => setImgErr(true)}
+            style={{ objectFit: "contain", display: "block", margin: "0 auto" }} />
+        ) : (
         <svg viewBox="0 0 240 200" width={240} height={200} style={{ overflow: "visible" }}>
           <defs>
             <radialGradient id="sl" cx="42%" cy="34%"><stop offset="0%" stopColor="#3a2a63" /><stop offset="100%" stopColor={C.slime} /></radialGradient>
@@ -261,6 +296,7 @@ function DarkNumber({ hit }) {
           <circle cx="148" cy="128" r="13" fill={C.gold} /><circle cx="150" cy="130" r="6" fill="#1a1430" />
           <path d="M96 158 Q120 146 144 158" fill="none" stroke="#9b7fd6" strokeWidth="4" strokeLinecap="round" />
         </svg>
+        )}
       </div>
     </div>
   );
@@ -712,7 +748,7 @@ function Rinogical() {
         {screen === "loading" && <Loading tip={tip} />}
         {screen === "character" && <CharacterSelect onPick={(c) => { setCharacter(c); setScreen("name"); }} />}
         {screen === "name" && (
-          <NameInput accent={character?.accent}
+          <NameInput accent={character?.accent} imgSrc={assetUrl(character?.img)}
             nickname={nickname} setNickname={setNickname}
             onNext={() => setScreen("tutorial")} />
         )}
@@ -745,8 +781,8 @@ function Loading({ tip }) {
 
 /* ---------- キャラ選択 ---------- */
 const CHARACTERS = [
-  { id: "myao", name: "ミャオ", accent: C.lav, desc: "ねこ耳の見習い魔導士" },
-  { id: "ruu", name: "ルゥ", accent: C.mint, desc: "しっぽが自慢の魔法使い" },
+  { id: "myao", name: "ミャオ", accent: C.lav, desc: "ねこ耳の見習い魔導士", img: "chars/myao.png" },
+  { id: "ruu", name: "ルゥ", accent: C.mint, desc: "しっぽが自慢の魔法使い", img: "chars/ruu.png" },
 ];
 
 function CharacterSelect({ onPick }) {
@@ -759,7 +795,7 @@ function CharacterSelect({ onPick }) {
         {chars.map(c => (
           <button key={c.id} className="rino-btn" onClick={() => onPick(c)}
             style={{ ...clay(C.bg1), border: "none", padding: 14, cursor: "pointer", width: 180 }}>
-            <Hero accent={c.accent} size={150} />
+            <Hero accent={c.accent} size={150} src={assetUrl(c.img)} />
             <div style={{ fontWeight: 900, fontSize: 18, color: c.accent }}>{c.name}</div>
             <div style={{ fontSize: 12, color: C.inkDim, marginTop: 2 }}>{t("charDesc")[c.id]}</div>
           </button>
@@ -770,12 +806,12 @@ function CharacterSelect({ onPick }) {
 }
 
 /* ---------- 名前入力 ---------- */
-function NameInput({ accent, nickname, setNickname, onNext }) {
+function NameInput({ accent, imgSrc, nickname, setNickname, onNext }) {
   const field = { ...clay(C.bg1, false), border: "none", outline: "none", color: C.ink, fontSize: 16,
     padding: "13px 16px", width: "100%", fontWeight: 700, marginTop: 6 };
   return (
     <div style={{ textAlign: "center", animation: "rino-pop .4s ease" }}>
-      <Hero accent={accent} size={130} />
+      <Hero accent={accent} size={130} src={imgSrc} />
       <h2 style={{ fontSize: 22, fontWeight: 900, margin: "8px 0 6px" }}>{t("nameTitle")}</h2>
       <p style={{ color: C.inkDim, fontSize: 13, marginBottom: 18 }}>{t("nameSub")}</p>
       <div style={{ textAlign: "left", marginBottom: 22 }}>
@@ -793,7 +829,7 @@ function NameInput({ accent, nickname, setNickname, onNext }) {
 function Tutorial({ char, nickname, onStart }) {
   return (
     <div style={{ textAlign: "center", animation: "rino-pop .4s ease" }}>
-      <Hero accent={char?.accent} mood="idle" size={140} />
+      <Hero accent={char?.accent} mood="idle" size={140} src={assetUrl(char?.img)} />
       <div style={{ ...clay(C.bg1), padding: 20, textAlign: "left", margin: "10px 0 18px", lineHeight: 1.8, fontSize: 15 }}>
         <p>{t("tutHello")}<b style={{ color: char?.accent }}>{nickname}</b>{t("tutHelloEnd")}</p>
         <p style={{ marginTop: 8 }}>{t("tutCurse")}</p>
@@ -814,7 +850,7 @@ function Home({ char, player, nickname, onBoss }) {
   return (
     <div style={{ animation: "rino-pop .4s ease", position: "relative", minHeight: 520 }}>
       <HUD p={player} name={nickname} />
-      <div style={{ textAlign: "center", marginBottom: 6 }}><Hero accent={char?.accent} size={120} /></div>
+      <div style={{ textAlign: "center", marginBottom: 6 }}><Hero accent={char?.accent} size={120} src={assetUrl(char?.img)} /></div>
       <h2 style={{ textAlign: "center", fontSize: 20, fontWeight: 900, marginBottom: 14 }}>{t("chooseTrial")}</h2>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {rooms.map((r, i) => (
@@ -941,7 +977,7 @@ function Battle({ char, player, setPlayer, nickname, onWin, onHome }) {
       </div>
 
       <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 10 }}>
-        <Hero accent={char?.accent} mood={mood} size={92} />
+        <Hero accent={char?.accent} mood={mood} size={92} src={assetUrl(char?.img)} />
         <div style={{ flex: 1 }}><HPBar label={t("hpOf", nickname)} value={hp} max={PLAYER_HP} color={C.mint} /></div>
       </div>
 
@@ -1059,7 +1095,7 @@ function Victory({ char, player, nickname, onHome }) {
   return (
     <div style={{ textAlign: "center", animation: "rino-pop .4s ease" }}>
       <div style={{ position: "relative" }}>
-        <Hero accent={char?.accent} mood="happy" size={170} />
+        <Hero accent={char?.accent} mood="happy" size={170} src={assetUrl(char?.img)} />
       </div>
       <h2 style={{ fontSize: 26, fontWeight: 900, color: C.gold, textShadow: `0 0 20px ${C.gold}` }}>{t("sealBroken")}</h2>
       <p style={{ color: C.inkDim, margin: "6px 0 18px" }}>{t("guardianReturned")}<br />{t("wellDone", nickname)}</p>
