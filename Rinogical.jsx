@@ -1,0 +1,1041 @@
+import React, { useState, useEffect, useRef } from "react";
+import { Coins, Sparkles, Star, Heart, Lightbulb, ArrowRight, RefreshCw, Lock } from "lucide-react";
+
+/* =========================================================================
+   Rinogical（りのじかる）— Phase 1 minimal working demo
+   ダークファンタジー × 粘土風パステル / 中1数学「正負の数」/ ボス：ダーク・ナンバー
+   - Lottie → CSSアニメで代替（実機は lottie-react に差し替え）
+   - Firebase/localStorage → メモリ状態で代替（artifactでは保存しない）
+   - Claude API（claude-sonnet-4-6）：AI解説・応用問題生成は本物が動作
+   ========================================================================= */
+
+/* ---------- パレット（粘土風パステル × 暗黒）---------- */
+const C = {
+  bg0: "#160f2e",
+  bg1: "#241844",
+  bg2: "#2e1f57",
+  ink: "#f6f1ff",
+  inkDim: "#c9bdf0",
+  lav: "#b9a7e8",
+  mint: "#a7e8cf",
+  peach: "#f5c6a5",
+  pink: "#f4b8d6",
+  butter: "#f6e4a4",
+  aqua: "#6ee7e0",
+  gold: "#ffd56b",
+  danger: "#ff8fb0",
+  slime: "#1c1330",
+};
+
+/* 粘土ぷっくり影 */
+const clay = (base, raised = true) => ({
+  background: base,
+  borderRadius: 28,
+  boxShadow: raised
+    ? "inset 5px 5px 10px rgba(255,255,255,.45), inset -6px -6px 12px rgba(0,0,0,.22), 8px 10px 22px rgba(0,0,0,.45)"
+    : "inset -5px -5px 10px rgba(255,255,255,.35), inset 6px 6px 12px rgba(0,0,0,.28), 4px 5px 12px rgba(0,0,0,.4)",
+});
+
+/* ===========================================================================
+   Firebase 連携（設定はここ1か所にまとめる。後から実プロジェクトの値に差し替え）
+   - Artifactサンドボックスや未設定時は自動でローカル動作（保存しない）にフォールバック
+   - エラーはconsoleに出すだけで、アプリは止めない
+   =========================================================================== */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyD7uAY50Bef2575lxjzuV5IBdahgzrhV7c",
+  authDomain: "rinogical.firebaseapp.com",
+  projectId: "rinogical",
+  storageBucket: "rinogical.firebasestorage.app",
+  messagingSenderId: "510843207944",
+  appId: "1:510843207944:web:91a3b0095bd69203e3ecbd",
+};
+
+const FIREBASE_VER = "11.0.2"; // CDNから読むSDKのバージョン
+
+/* 実行時に解決される firestore 関数の入れ物 */
+const fb = { ready: false, db: null, doc: null, getDoc: null, setDoc: null, serverTimestamp: null };
+let _memDeviceId = null; // localStorageが使えない環境用の一時ID
+
+/* 設定がプレースホルダーのままかどうか */
+function firebaseConfigured() {
+  return FIREBASE_CONFIG.apiKey && !FIREBASE_CONFIG.apiKey.startsWith("YOUR_");
+}
+
+/* デバイスごとのユニークID。localStorageに保存。使えなければメモリに退避 */
+function getDeviceId() {
+  const KEY = "rino_device_id";
+  const make = () => {
+    try { if (crypto?.randomUUID) return "dev-" + crypto.randomUUID(); } catch (e) {}
+    return "dev-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+  };
+  try {
+    let id = localStorage.getItem(KEY);
+    if (!id) { id = make(); localStorage.setItem(KEY, id); }
+    return id;
+  } catch (e) {
+    console.warn("[Rinogical] localStorage不可。一時IDで動作します:", e && e.message);
+    if (!_memDeviceId) _memDeviceId = make();
+    return _memDeviceId;
+  }
+}
+
+/* Firebase初期化（CDNから動的import）。失敗時はローカル動作 */
+async function initFirebase() {
+  if (!firebaseConfigured()) {
+    console.info("[Rinogical] Firebase未設定 → ローカル動作モード（保存なし）");
+    return false;
+  }
+  try {
+    const appMod = await import(`https://www.gstatic.com/firebasejs/${FIREBASE_VER}/firebase-app.js`);
+    const fsMod = await import(`https://www.gstatic.com/firebasejs/${FIREBASE_VER}/firebase-firestore.js`);
+    const app = appMod.initializeApp(FIREBASE_CONFIG);
+    fb.db = fsMod.getFirestore(app);
+    fb.doc = fsMod.doc; fb.getDoc = fsMod.getDoc; fb.setDoc = fsMod.setDoc; fb.serverTimestamp = fsMod.serverTimestamp;
+    fb.ready = true;
+    console.info("[Rinogical] Firebase接続OK");
+    return true;
+  } catch (e) {
+    console.error("[Rinogical] Firebase初期化に失敗 → ローカル動作で続行:", e);
+    return false;
+  }
+}
+
+/* Firestoreから users/{deviceId} を読む。無ければ null */
+async function loadUserData(deviceId) {
+  if (!fb.ready) return null;
+  try {
+    const snap = await fb.getDoc(fb.doc(fb.db, "users", deviceId));
+    return snap.exists() ? snap.data() : null;
+  } catch (e) {
+    console.error("[Rinogical] 読み込み失敗:", e);
+    return null;
+  }
+}
+
+/* Firestoreへ保存（merge）。updatedAtはサーバー時刻 */
+async function saveUserData(deviceId, data) {
+  if (!fb.ready || !deviceId) return;
+  try {
+    await fb.setDoc(
+      fb.doc(fb.db, "users", deviceId),
+      { ...data, updatedAt: fb.serverTimestamp() },
+      { merge: true }
+    );
+  } catch (e) {
+    console.error("[Rinogical] 保存失敗:", e);
+  }
+}
+
+/* ---------- グローバルなキーフレーム ---------- */
+function Keyframes() {
+  return (
+    <style>{`
+      @keyframes rino-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+      @keyframes rino-happy { 0%{transform:translateY(0) scale(1)} 28%{transform:translateY(-26px) scale(1.06)} 55%{transform:translateY(2px) scale(.95)} 75%{transform:translateY(-8px) scale(1.02)} 100%{transform:translateY(0) scale(1)} }
+      @keyframes rino-sad { 0%,100%{transform:rotate(0)} 20%{transform:rotate(-7deg)} 50%{transform:rotate(7deg)} 80%{transform:rotate(-5deg)} }
+      @keyframes rino-spark { 0%{opacity:0;transform:scale(.2) rotate(0)} 45%{opacity:1;transform:scale(1.15) rotate(40deg)} 100%{opacity:0;transform:scale(.4) rotate(90deg)} }
+      @keyframes rino-slime { 0%,100%{transform:scale(1,1)} 50%{transform:scale(1.07,.93)} }
+      @keyframes rino-numrise { 0%{opacity:0;transform:translateY(18px) scale(.7)} 25%{opacity:.85} 100%{opacity:0;transform:translateY(-64px) scale(1.1)} }
+      @keyframes rino-spin { to{transform:rotate(360deg)} }
+      @keyframes rino-hit { 0%,100%{filter:none;transform:translateX(0)} 25%{filter:brightness(2.2)} 30%{transform:translateX(-8px)} 60%{transform:translateX(8px)} }
+      @keyframes rino-pop { 0%{transform:scale(.85);opacity:0} 100%{transform:scale(1);opacity:1} }
+      @keyframes rino-rune { 0%,100%{opacity:.18} 50%{opacity:.5} }
+      @keyframes rino-glow { 0%,100%{box-shadow:0 0 18px rgba(110,231,224,.35)} 50%{box-shadow:0 0 34px rgba(110,231,224,.7)} }
+      .rino-btn{transition:transform .12s ease, filter .12s ease; -webkit-tap-highlight-color:transparent;}
+      .rino-btn:active{transform:scale(.96)}
+      .rino-btn:focus-visible{outline:3px solid ${C.aqua}; outline-offset:3px}
+      @media (prefers-reduced-motion: reduce){*{animation:none !important}}
+    `}</style>
+  );
+}
+
+/* ================= キャラクター（猫耳・セーラー）================= */
+function Hero({ mood = "idle", accent = C.lav, size = 200 }) {
+  const anim =
+    mood === "happy" ? "rino-happy .9s ease" :
+    mood === "sad" ? "rino-sad .7s ease" :
+    "rino-float 3.2s ease-in-out infinite";
+  const mouth =
+    mood === "happy" ? "M78 138 Q100 168 122 138" :
+    mood === "sad" ? "M80 150 Q100 134 120 150" :
+    "M84 142 Q100 156 116 142";
+  return (
+    <div style={{ width: size, height: size, position: "relative" }}>
+      {mood === "happy" && [0, 1, 2, 3].map(i => (
+        <Sparkles key={i} size={20 + i * 4} color={C.gold}
+          style={{ position: "absolute", top: 10 + (i % 2) * 120, left: i < 2 ? -6 : size - 26,
+            animation: `rino-spark .9s ease ${i * 0.08}s` }} />
+      ))}
+      <svg viewBox="0 0 200 210" width={size} height={size} style={{ animation: anim, overflow: "visible" }}>
+        <defs>
+          <radialGradient id="hg" cx="40%" cy="32%"><stop offset="0%" stopColor="#fffdf8" /><stop offset="100%" stopColor="#ffe8d6" /></radialGradient>
+          <radialGradient id="ha" cx="38%" cy="30%"><stop offset="0%" stopColor="#fff" stopOpacity=".85" /><stop offset="60%" stopColor={accent} /><stop offset="100%" stopColor="#7d63c4" /></radialGradient>
+        </defs>
+        {/* 影 */}
+        <ellipse cx="100" cy="198" rx="52" ry="10" fill="#000" opacity=".28" />
+        {/* 猫耳 */}
+        <path d="M52 56 L40 16 L84 44 Z" fill="url(#ha)" />
+        <path d="M148 56 L160 16 L116 44 Z" fill="url(#ha)" />
+        <path d="M54 50 L48 28 L74 44 Z" fill={C.pink} opacity=".8" />
+        <path d="M146 50 L152 28 L126 44 Z" fill={C.pink} opacity=".8" />
+        {/* 体・セーラー */}
+        <path d="M58 150 Q100 130 142 150 L150 196 Q100 208 50 196 Z" fill="url(#ha)" />
+        <path d="M70 142 L100 168 L130 142 L122 178 L78 178 Z" fill="#fbf7ff" />
+        <rect x="92" y="150" width="16" height="26" rx="6" fill={C.aqua} />
+        {/* 頭 */}
+        <circle cx="100" cy="96" r="56" fill="url(#hg)" />
+        {/* 前髪 */}
+        <path d="M44 92 Q46 44 100 42 Q154 44 156 92 Q150 70 128 66 Q132 80 116 82 Q118 64 100 62 Q102 80 84 82 Q88 66 72 68 Q52 74 44 92 Z" fill="url(#ha)" />
+        {/* 目 */}
+        <ellipse cx="80" cy="104" rx="9" ry="12" fill="#2b1f4a" />
+        <ellipse cx="120" cy="104" rx="9" ry="12" fill="#2b1f4a" />
+        <circle cx="83" cy="100" r="3.4" fill="#fff" />
+        <circle cx="123" cy="100" r="3.4" fill="#fff" />
+        {/* ほっぺ */}
+        <circle cx="64" cy="118" r="8" fill={C.pink} opacity=".7" />
+        <circle cx="136" cy="118" r="8" fill={C.pink} opacity=".7" />
+        {/* 口 */}
+        <path d={mouth} fill="none" stroke="#b56a7e" strokeWidth="4" strokeLinecap="round" />
+      </svg>
+    </div>
+  );
+}
+
+/* ================= ボス：ダーク・ナンバー ================= */
+function DarkNumber({ hit }) {
+  const nums = ["7", "-3", "5", "-8", "0", "-1", "9", "-4"];
+  return (
+    <div style={{ width: 240, height: 200, position: "relative" }}>
+      {nums.map((n, i) => (
+        <span key={i} style={{
+          position: "absolute", left: 24 + (i * 27) % 200, top: 120,
+          fontWeight: 800, fontSize: 18 + (i % 3) * 6, color: i % 2 ? C.aqua : C.gold,
+          textShadow: "0 0 10px rgba(110,231,224,.7)",
+          animation: `rino-numrise ${2.4 + (i % 4) * 0.5}s ease-in-out ${i * 0.3}s infinite`,
+        }}>{n}</span>
+      ))}
+      <div style={{ animation: hit ? "rino-hit .45s ease" : "rino-slime 2.6s ease-in-out infinite" }}>
+        <svg viewBox="0 0 240 200" width={240} height={200} style={{ overflow: "visible" }}>
+          <defs>
+            <radialGradient id="sl" cx="42%" cy="34%"><stop offset="0%" stopColor="#3a2a63" /><stop offset="100%" stopColor={C.slime} /></radialGradient>
+          </defs>
+          <ellipse cx="120" cy="182" rx="74" ry="12" fill="#000" opacity=".35" />
+          <path d="M40 150 Q26 96 70 78 Q92 40 120 64 Q150 40 172 80 Q216 98 200 152 Q204 184 120 184 Q36 184 40 150 Z" fill="url(#sl)" stroke="#5b3fa0" strokeWidth="3" />
+          <ellipse cx="86" cy="92" rx="16" ry="10" fill="#fff" opacity=".12" />
+          <circle cx="96" cy="128" r="13" fill={C.gold} /><circle cx="98" cy="130" r="6" fill="#1a1430" />
+          <circle cx="148" cy="128" r="13" fill={C.gold} /><circle cx="150" cy="130" r="6" fill="#1a1430" />
+          <path d="M96 158 Q120 146 144 158" fill="none" stroke="#9b7fd6" strokeWidth="4" strokeLinecap="round" />
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+/* ================= 先生キャラ：マギ先生（眼鏡・杖・数字が浮かぶローブ）================= */
+function Magi({ size = 116 }) {
+  return (
+    <div style={{ width: size, height: size * 1.18, position: "relative", animation: "rino-float 3.6s ease-in-out infinite" }}>
+      <svg viewBox="0 0 160 190" width={size} height={size * 1.18} style={{ overflow: "visible" }}>
+        <defs>
+          <radialGradient id="mrobe" cx="40%" cy="22%"><stop offset="0%" stopColor="#d8caf6" /><stop offset="100%" stopColor="#6f56b8" /></radialGradient>
+          <radialGradient id="mskin" cx="40%" cy="32%"><stop offset="0%" stopColor="#fffdf8" /><stop offset="100%" stopColor="#ffe8d6" /></radialGradient>
+          <radialGradient id="morb" cx="38%" cy="32%"><stop offset="0%" stopColor="#fff" /><stop offset="55%" stopColor={C.aqua} /><stop offset="100%" stopColor="#2a8f8a" /></radialGradient>
+        </defs>
+        <ellipse cx="80" cy="180" rx="46" ry="9" fill="#000" opacity=".3" />
+        {/* 杖（つえ）＋光る玉 */}
+        <line x1="126" y1="58" x2="120" y2="178" stroke="#9a774f" strokeWidth="7" strokeLinecap="round" />
+        <circle cx="128" cy="50" r="13" fill="url(#morb)" style={{ animation: "rino-rune 2.4s ease-in-out infinite" }} />
+        {/* ローブ（数字が浮かぶ）*/}
+        <path d="M48 116 Q80 100 112 116 L126 178 Q80 190 34 178 Z" fill="url(#mrobe)" stroke="#5f47a3" strokeWidth="2" />
+        {["3", "-2", "5", "-1", "7"].map((n, i) => (
+          <text key={i} x={44 + i * 17} y={168} fontSize="13" fontWeight="800" fill={i % 2 ? C.aqua : C.gold}
+            style={{ animation: `rino-numrise ${2.6 + i * 0.4}s ease-in-out ${i * 0.4}s infinite` }}>{n}</text>
+        ))}
+        {/* 杖を持つ腕 */}
+        <path d="M104 124 Q120 116 122 86" fill="none" stroke="#7d63c4" strokeWidth="12" strokeLinecap="round" />
+        {/* 頭 */}
+        <circle cx="80" cy="74" r="40" fill="url(#mskin)" />
+        {/* 髪 */}
+        <path d="M42 76 Q44 34 80 32 Q116 34 118 76 Q112 56 96 54 Q98 46 80 46 Q62 46 64 54 Q48 56 42 76 Z" fill="#574675" />
+        {/* 眼鏡（めがね）*/}
+        <circle cx="66" cy="80" r="13" fill="#bfe9ff" opacity=".35" stroke="#3a2f5c" strokeWidth="3" />
+        <circle cx="94" cy="80" r="13" fill="#bfe9ff" opacity=".35" stroke="#3a2f5c" strokeWidth="3" />
+        <line x1="78" y1="80" x2="82" y2="80" stroke="#3a2f5c" strokeWidth="3" />
+        {/* 目・口 */}
+        <circle cx="66" cy="82" r="4" fill="#2b1f4a" />
+        <circle cx="94" cy="82" r="4" fill="#2b1f4a" />
+        <path d="M70 100 Q80 108 90 100" fill="none" stroke="#b56a7e" strokeWidth="3" strokeLinecap="round" />
+      </svg>
+    </div>
+  );
+}
+
+/* ================= HPゲージ ================= */
+function HPBar({ label, value, max, color }) {
+  const pct = Math.max(0, (value / max) * 100);
+  return (
+    <div style={{ width: "100%" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: C.inkDim, marginBottom: 4, fontWeight: 700 }}>
+        <span>{label}</span><span>{Math.max(0, value)}/{max}</span>
+      </div>
+      <div style={{ height: 18, borderRadius: 12, background: "rgba(0,0,0,.4)", boxShadow: "inset 2px 2px 6px rgba(0,0,0,.6)", overflow: "hidden" }}>
+        <div style={{ width: `${pct}%`, height: "100%", borderRadius: 12, background: color, transition: "width .5s ease", boxShadow: "inset 0 2px 4px rgba(255,255,255,.5)" }} />
+      </div>
+    </div>
+  );
+}
+
+/* ================= 問題エンジン（正負の数）================= */
+const rint = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
+const fmt = (n) => (n < 0 ? `(${n})` : `${n}`);
+
+function genKihon(level) {
+  const r = Math.min(5 + level * 2, 14);
+  const a = rint(-r, r), b = rint(-r, r);
+  const useMul = level >= 3 && Math.random() < 0.4;
+  if (useMul) {
+    const x = rint(-6, 6), y = rint(-6, 6);
+    return { q: `${fmt(x)} × ${fmt(y)}`, a: x * y, kind: "超基本" };
+  }
+  const op = Math.random() < 0.5 ? "+" : "-";
+  return { q: `${fmt(a)} ${op} ${fmt(b)}`, a: op === "+" ? a + b : a - b, kind: "超基本" };
+}
+
+const HYOJUN = [
+  { q: "(-2) + (-5) + 3", a: -4 }, { q: "8 - 12 + (-4)", a: -8 },
+  { q: "(-3) × 4", a: -12 }, { q: "(-6) × (-5)", a: 30 },
+  { q: "(-18) ÷ 3", a: -6 }, { q: "20 ÷ (-4)", a: -5 },
+  { q: "(-2)³", a: -8 }, { q: "-3²", a: -9 },
+  { q: "|-7| + |-3|", a: 10 }, { q: "(-4) - (-9)", a: 5 },
+];
+const genHyojun = () => ({ ...HYOJUN[rint(0, HYOJUN.length - 1)], kind: "標準" });
+
+function shuffle(arr) { return arr.map(v => [Math.random(), v]).sort((a, b) => a[0] - b[0]).map(v => v[1]); }
+function makeChoices(answer) {
+  const set = new Set([answer]);
+  const cands = [-answer, answer + 1, answer - 1, answer + 2, answer - 2, answer + (answer === 0 ? 3 : 0)];
+  for (const c of shuffle(cands)) { if (set.size >= 4) break; if (!set.has(c)) set.add(c); }
+  let g = 1; while (set.size < 4) { set.add(answer + g * 3); set.add(answer - g * 3); g++; }
+  return shuffle([...set].slice(0, 4));
+}
+
+/* 回答方式の決定：答えが整数の問題だけ「入力」にできる（分数・小数・式は4択）。
+   レベルが上がるほど入力の比率を上げる（Lv1-2=4択のみ / Lv3-4=約30% / Lv5+=約50%）。 */
+function pickAnswerMode(level, ans) {
+  if (!Number.isInteger(ans)) return "choice";
+  const p = level >= 5 ? 0.5 : level >= 3 ? 0.3 : 0;
+  return Math.random() < p ? "input" : "choice";
+}
+
+/* 入力をやさしく解釈：全角数字・全角マイナス・空白を吸収して整数に */
+function parseInput(s) {
+  if (s == null) return null;
+  let t = String(s).trim()
+    .replace(/[０-９]/g, d => "０１２３４５６７８９".indexOf(d).toString())
+    .replace(/[ー－−—‐]/g, "-")
+    .replace(/[＋]/g, "+")
+    .replace(/\s/g, "");
+  if (t === "" || t === "-" || t === "+") return null;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : null;
+}
+
+/* ================= AI（プロキシ経由）================= */
+/* 受付係（Cloudflare Worker）のURL。ここ1か所だけで定義する。 */
+const AI_PROXY_URL = "https://rinogical-ai.jet-speeder-herberty.workers.dev";
+
+async function callClaude(messages, system) {
+  const res = await fetch(AI_PROXY_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ system: system, messages: messages }),
+  });
+  const data = await res.json();
+  if (!res.ok || data.error) throw new Error(data.error || ("proxy " + res.status));
+  return data.text || "";
+}
+
+/* 先生キャラの名前は全フェーズ共通・変更不可。ここ1か所だけで定義する。 */
+const TEACHER = "マギ先生";
+
+const EXPLAIN_SYSTEM =
+  `あなたは中学1年生のための、やさしい数学の先生「${TEACHER}」です。` +
+  "数式（すうしき）を操る魔法使いで、眼鏡（めがね）と杖（つえ）を持ち、数字が浮かぶローブを着ています。" +
+  "魔法学校の先生らしく、たまに「呪文（じゅもん）」「魔法」などの言葉を少しだけ使ってワクワクさせます（使いすぎない）。" +
+  "解説スタイル：①短文で ②箇条書きは行頭に「・」だけを使う ③むずかしい漢字にはふりがな（例：符号（ふごう）） ④まず良いところを褒める ⑤絶対に責めない・否定しない。" +
+  "重要：マークダウン記号（** や * や # や ```）は絶対に使わない。強調したいときも記号で囲まない。" +
+  "正負の数の単元。答えそのものより『考え方のステップ』を伝える。絵文字は1〜2個までOK。" +
+  "毎回みじかく。長く書きすぎない。";
+
+async function genOyou(level) {
+  const sys =
+    "あなたは中学1年生（東京書籍・正負の数）の数学問題を作る出題者です。" +
+    "答えが必ず1つの整数になる、少し考える応用問題を1問だけ作ってください。" +
+    "出力はJSONのみ。前置き・マークダウン・コードフェンス禁止。" +
+    'フォーマット: {"q":"問題文（短く）","a":整数,"choices":[4つの整数。aを必ず含む]}';
+  const txt = await callClaude([{ role: "user", content: `レベル${level}相当の応用問題を1問。` }], sys);
+  const clean = txt.replace(/```json|```/g, "").trim();
+  const obj = JSON.parse(clean);
+  if (typeof obj.a !== "number" || !obj.q) throw new Error("bad");
+  let choices = Array.isArray(obj.choices) ? obj.choices.filter(n => typeof n === "number") : [];
+  if (!choices.includes(obj.a) || choices.length < 4) choices = makeChoices(obj.a);
+  return { q: obj.q, a: obj.a, choices: shuffle(choices).slice(0, 4), kind: "応用" };
+}
+
+/* ローカル解説フォールバック */
+function localExplain(p) {
+  return [
+    "ナイスチャレンジ！👏 いっしょに見直そう。",
+    "・まず符号（ふごう）に注目してね。",
+    "・ひき算は『＋反対の数』に直すとラクだよ。",
+    `・答えは ${p.a} になるよ。`,
+    "もう一回いける！🌟",
+  ].join("\n");
+}
+
+/* ===========================================================================
+   多言語の土台（i18n）
+   - 画面に出る文章は、すべてこの STR 辞書にまとめる。
+   - LANG を変えると言語が切り替わる（今は "ja" だけ。英語を足すなら STR.en を埋めて "en" に）。
+   - en などに無いキーは自動で ja にフォールバックする（途中まで翻訳でも壊れない）。
+   - t("キー") で取り出す。変数が要る文は関数で持つ：t("hpOf", name) など。
+   - 注意：AI解説のプロンプトは「先生が話す言語」なので、英語追加時にここへ一緒に移す。
+   =========================================================================== */
+const LANG = "ja";
+
+const STR = {
+  ja: {
+    appSubtitle: "りのじかる魔法学校",
+    tipLabel: "豆知識：",
+    tips: [
+      "マイナス×マイナスは…なんとプラス！",
+      "0より小さい数を『負（ふ）の数』というよ。",
+      "符号がそろえば、足すだけでOK。",
+      "ひき算は『反対の数をたす』とカンタンに。",
+      "数直線を思いうかべると間違えにくいよ。",
+    ],
+    chooseBuddy: "あいぼうをえらぶ",
+    chooseBuddySub: "いっしょに「無知の呪い」をとこう",
+    charDesc: { myao: "ねこ耳の見習い魔導士", ruu: "しっぽが自慢の魔法使い" },
+    nameTitle: "なんて呼べばいい？",
+    nameSub: "この呼び方で、ゲーム中も親画面でも呼ぶよ",
+    nickLabel: "呼ばれ方（ニックネーム）",
+    nickPlaceholder: "例：けいくん",
+    next: "すすむ",
+    tutHello: "ようこそ、",
+    tutHelloEnd: "。",
+    tutCurse: "りのじかる魔法学校に「無知の呪い」がかけられた。",
+    tutSeal: "７つの試練の間にある封印を解き、守護者を元にもどそう。",
+    tutMechanism: "問題を解く＝魔法の力で呪いを解く。さあ、最初の間へ。",
+    startAdventure: "ぼうけんをはじめる ✦",
+    chooseTrial: "試練の間をえらぶ",
+    rooms: [
+      { name: "暗黒の数字の間", sub: "正負の数 / ボス：ダーク・ナンバー" },
+      { name: "文字式の回廊", sub: "Phase 2 で解放" },
+      { name: "方程式の聖堂", sub: "Phase 2 で解放" },
+    ],
+    bossName: "ダーク・ナンバー",
+    bossHP: "ボスHP",
+    hpOf: (n) => `${n} のHP`,
+    deadMsg: "だいじょうぶ、まだいける！🌱",
+    deadMsg2: "もう一度ちょうせんしよう。",
+    retry: "もう一回",
+    callingProblem: "魔法の問題を よびだし中…",
+    attackHint: "正解で攻撃 / 不正解でダメージ",
+    inputHint: "数字で答えてね（マイナスは ± ボタン）",
+    inputPlaceholder: "答えを入力",
+    answerBtn: "こたえる",
+    yourAnswer: "あなたの答え：",
+    correctMark: " ⭕",
+    answerWas: (a) => ` ／ 正解は ${a}`,
+    correctPlus: "せいかい！ +10",
+    nextSpell: "つぎの呪文へ ✦",
+    teacherIntro: "おしい！いっしょに見直そう 🌟",
+    thinking: "が考え中…",
+    why: "なんで？",
+    easier: "もっとかんたんに",
+    nextProblem: "つぎの問題にすすむ →",
+    backToTrials: "← 試練の間にもどる",
+    sealBroken: "封印を解いた！",
+    guardianReturned: "「暗黒の数字の間」の守護者がもどってきた。",
+    wellDone: (n) => `よくやったね、${n}！`,
+    clear: "クリア",
+    backToTrialsBtn: "試練の間にもどる",
+  },
+  en: {
+    // ここに英語を追加すると英語版になります（未訳のキーは日本語が出ます）。
+    // 例：appSubtitle: "Rinogical Magic School",
+  },
+};
+
+function t(key, ...args) {
+  const table = STR[LANG] || STR.ja;
+  let v = table[key];
+  if (v === undefined) v = STR.ja[key];
+  return typeof v === "function" ? v(...args) : v;
+}
+
+/* ===========================================================================
+   開発者用：隠し進捗パネル
+   ▼ 本番リリース時はここを false にするだけで「dev」ボタンごと消えます ▼
+   =========================================================================== */
+const DEV_PANEL_ENABLED = true;
+
+const PROGRESS = [
+  { phase: "Phase 1", items: [
+    { t: "ローディング画面＋豆知識", done: true },
+    { t: "キャラクター選択（2体）", done: true },
+    { t: "ニックネーム入力", done: true },
+    { t: "チュートリアル", done: true },
+    { t: "ホーム画面（試練の間）", done: true },
+    { t: "バトル画面（正負の数）", done: true },
+    { t: "超基本・標準・応用問題", done: true },
+    { t: "Claude AI解説（マギ先生）", done: true },
+    { t: "なんで？・もっとかんたんに2段階", done: true },
+    { t: "コイン・レベルシステム", done: true },
+    { t: "勝利画面", done: true },
+    { t: "Firebase連携（データ保存）", done: true },
+    { t: "PWA対応", done: false },
+    { t: "Lottieアニメーション", done: false },
+    { t: "キャラクター6種類", done: false },
+    { t: "音・BGM", done: false },
+  ]},
+  { phase: "Phase 2", items: [
+    { t: "全科目ホーム画面UI", done: false },
+    { t: "ホーム画面背景6種類", done: false },
+    { t: "文字サイズ設定（小・中・大）", done: false },
+    { t: "夜間モード", done: false },
+    { t: "ヘルプ機能", done: false },
+  ]},
+  { phase: "Phase 3", items: [
+    { t: "ゲームシステム強化（ショップ・レアリティ）", done: false },
+    { t: "Lottieアニメーション本実装", done: false },
+    { t: "ボス戦強化（難易度選択・タイムアタック）", done: false },
+    { t: "復習モード・間違いノート", done: false },
+    { t: "気分転換ミニゲーム", done: false },
+    { t: "目標設定システム", done: false },
+    { t: "救済カード", done: false },
+  ]},
+  { phase: "Phase 4", items: [
+    { t: "英語追加（光村図書）", done: false },
+    { t: "国語追加（光村図書）", done: false },
+    { t: "理科追加（東京書籍）", done: false },
+    { t: "社会追加（帝国書院・東京書籍）", done: false },
+    { t: "各科目の背景・先生キャラ追加", done: false },
+  ]},
+  { phase: "Phase 5", items: [
+    { t: "親画面（別URL）", done: false },
+    { t: "進捗管理・能力レベル判定", done: false },
+    { t: "Firebase完全連携", done: false },
+    { t: "プリント読取（Claude API）", done: false },
+    { t: "成長アルバム", done: false },
+  ]},
+  { phase: "Phase 6", items: [
+    { t: "音・BGM（オン/オフ切替）", done: false },
+    { t: "LINE週次レポート", done: false },
+    { t: "通知機能", done: false },
+    { t: "デイリーボーナス", done: false },
+    { t: "親子メッセージ機能", done: false },
+    { t: "API費用表示", done: false },
+  ]},
+  { phase: "Phase 7", items: [
+    { t: "AI世界・お金の授業", done: false },
+    { t: "マルチユーザー対応", done: false },
+    { t: "Stripe決済・サブスク化", done: false },
+    { t: "次女アカウント追加", done: false },
+  ]},
+];
+
+function DevPanel({ onClose }) {
+  const allItems = PROGRESS.flatMap(p => p.items);
+  const doneAll = allItems.filter(i => i.done).length;
+  return (
+    <div onClick={onClose} style={{ position: "absolute", inset: 0, zIndex: 50, background: "rgba(8,5,20,.82)",
+      display: "flex", alignItems: "center", justifyContent: "center", padding: 12, borderRadius: 24 }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 440, maxHeight: "88%", overflowY: "auto",
+        background: "#12101c", borderRadius: 18, border: "1px solid #34304a", padding: 16,
+        fontFamily: "ui-monospace,Menlo,Consolas,monospace", color: "#cfc7e6" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+          <span style={{ fontWeight: 800, color: "#8be9c0", fontSize: 14 }}>DEV / 進捗チェックリスト</span>
+          <button onClick={onClose} style={{ background: "#2a2740", color: "#cfc7e6", border: "none", borderRadius: 8,
+            padding: "5px 12px", fontWeight: 800, cursor: "pointer", fontSize: 13 }}>閉じる ✕</button>
+        </div>
+        <div style={{ fontSize: 12, color: "#8a83a8", marginBottom: 12 }}>全体 {doneAll}/{allItems.length} 完了</div>
+        {PROGRESS.map((p, pi) => {
+          const d = p.items.filter(i => i.done).length;
+          return (
+            <div key={pi} style={{ marginBottom: 14 }}>
+              <div style={{ fontWeight: 800, color: "#ffd56b", fontSize: 13, marginBottom: 6, borderBottom: "1px solid #2a2740", paddingBottom: 4 }}>
+                {p.phase}　<span style={{ color: "#6f6a88", fontWeight: 600 }}>({d}/{p.items.length})</span>
+              </div>
+              {p.items.map((it, ii) => (
+                <div key={ii} style={{ display: "flex", gap: 8, fontSize: 13, lineHeight: 1.9,
+                  color: it.done ? "#9fe8c6" : "#9b95b4" }}>
+                  <span>{it.done ? "✅" : "⬜"}</span><span>{it.t}</span>
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ================= ヘッダーHUD ================= */
+function HUD({ p, name }) {
+  return (
+    <div style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "center", flexWrap: "wrap", marginBottom: 14 }}>
+      <Pill icon={<Star size={16} color={C.bg0} />} text={`Lv.${p.level}`} bg={C.butter} />
+      <Pill icon={<Coins size={16} color={C.bg0} />} text={`${p.coins}`} bg={C.gold} />
+      <span style={{ color: C.inkDim, fontWeight: 700, fontSize: 14 }}>{name}</span>
+    </div>
+  );
+}
+function Pill({ icon, text, bg }) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 999, background: bg,
+      color: C.bg0, fontWeight: 800, fontSize: 14, boxShadow: "inset 3px 3px 6px rgba(255,255,255,.5), 3px 4px 9px rgba(0,0,0,.35)" }}>
+      {icon}{text}
+    </span>
+  );
+}
+
+/* ボタン */
+function Btn({ children, onClick, bg = C.lav, color = C.bg0, full, style, disabled }) {
+  return (
+    <button className="rino-btn" onClick={onClick} disabled={disabled}
+      style={{ ...clay(disabled ? "#6b5f8f" : bg), color, border: "none", padding: "14px 22px", fontSize: 17, fontWeight: 800,
+        cursor: disabled ? "not-allowed" : "pointer", width: full ? "100%" : "auto", opacity: disabled ? .6 : 1, ...style }}>
+      {children}
+    </button>
+  );
+}
+
+/* ================= メインアプリ ================= */
+export default function Rinogical() {
+  const [screen, setScreen] = useState("loading");
+  const [tip] = useState(() => { const a = t("tips"); return a[rint(0, a.length - 1)]; });
+  const [character, setCharacter] = useState(null);
+  const [nickname, setNickname] = useState("");
+  const [player, setPlayer] = useState({ level: 1, xp: 0, coins: 0 });
+  const deviceIdRef = useRef(null);
+  const persistReady = useRef(false); // 初回読込が終わるまで保存しない（既存データの上書き防止）
+
+  /* 起動時：Firebase初期化 → デバイスID取得 → データ読込（無ければ初期設定へ） */
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const sleep = new Promise(r => setTimeout(r, 1300)); // ローディング演出の最低表示時間
+      await initFirebase();
+      const id = getDeviceId();
+      deviceIdRef.current = id;
+      const data = await loadUserData(id);
+      await sleep;
+      if (!alive) return;
+      if (data && data.nickname) {
+        const ch = CHARACTERS.find(c => c.id === data.characterId)
+          || { id: data.characterId || "myao", accent: data.characterAccent || C.lav };
+        setNickname(data.nickname);
+        setCharacter(ch);
+        setPlayer({ level: data.level ?? 1, xp: data.xp ?? 0, coins: data.coins ?? 0 });
+        setScreen("home"); // 続きから
+      } else {
+        setScreen("character"); // 新規：初期設定へ
+      }
+      persistReady.current = true; // ここから保存を有効化
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  /* 保存タイミング：レベルアップ・コイン増加・XP変化（=playerの変化）／ニックネーム・キャラ確定時 */
+  useEffect(() => {
+    if (!persistReady.current) return;
+    if (!nickname || !character) return;
+    const ch = character || {};
+    saveUserData(deviceIdRef.current, {
+      nickname,
+      characterId: ch.id || null,
+      characterAccent: ch.accent || null,
+      level: player.level, xp: player.xp, coins: player.coins,
+    });
+  }, [player, nickname, character]);
+
+  const font = { fontFamily: "'Hiragino Maru Gothic ProN','Yu Gothic UI','M PLUS Rounded 1c',system-ui,sans-serif" };
+
+  return (
+    <div style={{ ...font, minHeight: 620, color: C.ink, position: "relative", overflow: "hidden",
+      background: `radial-gradient(1200px 500px at 50% -10%, ${C.bg2}, ${C.bg0} 70%)`, padding: "26px 18px", borderRadius: 24 }}>
+      <Keyframes />
+      {/* 背景のルーン */}
+      {["✦", "✧", "⚝", "❉", "✺", "✦"].map((r, i) => (
+        <span key={i} style={{ position: "absolute", color: C.aqua, fontSize: 16 + (i % 3) * 8,
+          left: `${(i * 17 + 5) % 92}%`, top: `${(i * 23 + 8) % 88}%`, animation: `rino-rune ${4 + i}s ease-in-out infinite`, pointerEvents: "none" }}>{r}</span>
+      ))}
+
+      <div style={{ maxWidth: 460, margin: "0 auto", position: "relative" }}>
+        {screen === "loading" && <Loading tip={tip} />}
+        {screen === "character" && <CharacterSelect onPick={(c) => { setCharacter(c); setScreen("name"); }} />}
+        {screen === "name" && (
+          <NameInput accent={character?.accent}
+            nickname={nickname} setNickname={setNickname}
+            onNext={() => setScreen("tutorial")} />
+        )}
+        {screen === "tutorial" && <Tutorial char={character} nickname={nickname} onStart={() => setScreen("home")} />}
+        {screen === "home" && <Home char={character} player={player} nickname={nickname} onBoss={() => setScreen("battle")} />}
+        {screen === "battle" && (
+          <Battle char={character} player={player} setPlayer={setPlayer} nickname={nickname}
+            onWin={() => setScreen("victory")} onHome={() => setScreen("home")} />
+        )}
+        {screen === "victory" && <Victory char={character} player={player} nickname={nickname} onHome={() => setScreen("home")} />}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- ローディング ---------- */
+function Loading({ tip }) {
+  return (
+    <div style={{ textAlign: "center", paddingTop: 80 }}>
+      <div style={{ fontSize: 40, fontWeight: 900, letterSpacing: 1, color: C.ink, textShadow: `0 0 24px ${C.lav}` }}>Rinogical</div>
+      <div style={{ color: C.inkDim, marginTop: 4, fontWeight: 700 }}>{t("appSubtitle")}</div>
+      <div style={{ margin: "34px auto", width: 70, height: 70, borderRadius: "50%",
+        border: `7px solid rgba(255,255,255,.12)`, borderTopColor: C.aqua, animation: "rino-spin 1s linear infinite" }} />
+      <div style={{ ...clay(C.bg1), padding: "12px 16px", color: C.inkDim, fontSize: 14, fontWeight: 700, maxWidth: 320, margin: "0 auto" }}>
+        <span style={{ color: C.gold }}>{t("tipLabel")}</span>{tip}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- キャラ選択 ---------- */
+const CHARACTERS = [
+  { id: "myao", name: "ミャオ", accent: C.lav, desc: "ねこ耳の見習い魔導士" },
+  { id: "ruu", name: "ルゥ", accent: C.mint, desc: "しっぽが自慢の魔法使い" },
+];
+
+function CharacterSelect({ onPick }) {
+  const chars = CHARACTERS;
+  return (
+    <div style={{ textAlign: "center", animation: "rino-pop .4s ease" }}>
+      <h2 style={{ fontSize: 24, fontWeight: 900, marginBottom: 4 }}>{t("chooseBuddy")}</h2>
+      <p style={{ color: C.inkDim, marginBottom: 18, fontSize: 14 }}>{t("chooseBuddySub")}</p>
+      <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
+        {chars.map(c => (
+          <button key={c.id} className="rino-btn" onClick={() => onPick(c)}
+            style={{ ...clay(C.bg1), border: "none", padding: 14, cursor: "pointer", width: 180 }}>
+            <Hero accent={c.accent} size={150} />
+            <div style={{ fontWeight: 900, fontSize: 18, color: c.accent }}>{c.name}</div>
+            <div style={{ fontSize: 12, color: C.inkDim, marginTop: 2 }}>{t("charDesc")[c.id]}</div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- 名前入力 ---------- */
+function NameInput({ accent, nickname, setNickname, onNext }) {
+  const field = { ...clay(C.bg1, false), border: "none", outline: "none", color: C.ink, fontSize: 16,
+    padding: "13px 16px", width: "100%", fontWeight: 700, marginTop: 6 };
+  return (
+    <div style={{ textAlign: "center", animation: "rino-pop .4s ease" }}>
+      <Hero accent={accent} size={130} />
+      <h2 style={{ fontSize: 22, fontWeight: 900, margin: "8px 0 6px" }}>{t("nameTitle")}</h2>
+      <p style={{ color: C.inkDim, fontSize: 13, marginBottom: 18 }}>{t("nameSub")}</p>
+      <div style={{ textAlign: "left", marginBottom: 22 }}>
+        <label style={{ fontWeight: 800, color: C.inkDim, fontSize: 14 }}>{t("nickLabel")}</label>
+        <input style={field} value={nickname} onChange={e => setNickname(e.target.value)} placeholder={t("nickPlaceholder")} maxLength={16} />
+      </div>
+      <Btn full bg={accent} onClick={onNext} disabled={!nickname.trim()}>
+        {t("next")} <ArrowRight size={18} style={{ verticalAlign: "-3px" }} />
+      </Btn>
+    </div>
+  );
+}
+
+/* ---------- チュートリアル ---------- */
+function Tutorial({ char, nickname, onStart }) {
+  return (
+    <div style={{ textAlign: "center", animation: "rino-pop .4s ease" }}>
+      <Hero accent={char?.accent} mood="idle" size={140} />
+      <div style={{ ...clay(C.bg1), padding: 20, textAlign: "left", margin: "10px 0 18px", lineHeight: 1.8, fontSize: 15 }}>
+        <p>{t("tutHello")}<b style={{ color: char?.accent }}>{nickname}</b>{t("tutHelloEnd")}</p>
+        <p style={{ marginTop: 8 }}>{t("tutCurse")}</p>
+        <p style={{ marginTop: 8 }}>{t("tutSeal")}</p>
+        <p style={{ marginTop: 8 }}>{t("tutMechanism")}</p>
+      </div>
+      <Btn full bg={C.aqua} onClick={onStart}>{t("startAdventure")}</Btn>
+    </div>
+  );
+}
+
+/* ---------- ホーム（試練の間）---------- */
+function Home({ char, player, nickname, onBoss }) {
+  const [devOpen, setDevOpen] = useState(false);
+  // 開放フラグだけコード側に残し、name/sub は辞書（t("rooms")）から取る
+  const roomOpen = [true, false, false];
+  const rooms = t("rooms").map((r, i) => ({ ...r, open: roomOpen[i] }));
+  return (
+    <div style={{ animation: "rino-pop .4s ease", position: "relative", minHeight: 520 }}>
+      <HUD p={player} name={nickname} />
+      <div style={{ textAlign: "center", marginBottom: 6 }}><Hero accent={char?.accent} size={120} /></div>
+      <h2 style={{ textAlign: "center", fontSize: 20, fontWeight: 900, marginBottom: 14 }}>{t("chooseTrial")}</h2>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {rooms.map((r, i) => (
+          <button key={i} className="rino-btn" disabled={!r.open} onClick={r.open ? onBoss : undefined}
+            style={{ ...clay(r.open ? C.bg1 : "#221a3d"), border: "none", padding: "16px 18px", textAlign: "left",
+              display: "flex", alignItems: "center", gap: 12, cursor: r.open ? "pointer" : "default", opacity: r.open ? 1 : .55,
+              ...(r.open ? { animation: "rino-glow 2.6s ease-in-out infinite" } : {}) }}>
+            <div style={{ fontSize: 30 }}>{r.open ? "🗝️" : <Lock size={26} color={C.inkDim} />}</div>
+            <div>
+              <div style={{ fontWeight: 900, fontSize: 16, color: r.open ? C.aqua : C.inkDim }}>{r.name}</div>
+              <div style={{ fontSize: 12, color: C.inkDim }}>{r.sub}</div>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {/* 開発者用：極小・薄色の隠しボタン（右下隅）。DEV_PANEL_ENABLED=false で消える */}
+      {DEV_PANEL_ENABLED && (
+        <button onClick={() => setDevOpen(true)} aria-label="dev"
+          style={{ position: "absolute", right: 2, bottom: 2, width: 22, height: 16, padding: 0,
+            background: "transparent", border: "none", color: "rgba(255,255,255,.12)",
+            fontSize: 9, fontWeight: 700, letterSpacing: .5, cursor: "pointer", lineHeight: "16px" }}>
+          dev
+        </button>
+      )}
+      {DEV_PANEL_ENABLED && devOpen && <DevPanel onClose={() => setDevOpen(false)} />}
+    </div>
+  );
+}
+
+/* ---------- バトル ---------- */
+const BOSS_HP = 100, PLAYER_HP = 100, HIT_DMG = 25, TAKE_DMG = 20;
+
+function Battle({ char, player, setPlayer, nickname, onWin, onHome }) {
+  const [bossHP, setBossHP] = useState(BOSS_HP);
+  const [hp, setHp] = useState(PLAYER_HP);
+  const [problem, setProblem] = useState(null);
+  const [choices, setChoices] = useState([]);
+  const [mood, setMood] = useState("idle");
+  const [bossHit, setBossHit] = useState(false);
+  const [phase, setPhase] = useState("loading"); // loading | answer | result
+  const [picked, setPicked] = useState(null);
+  const [mode, setMode] = useState("choice");   // "choice" か "input"
+  const [inputVal, setInputVal] = useState("");
+  const [explain, setExplain] = useState("");
+  const [explaining, setExplaining] = useState(false);
+  const convo = useRef([]);
+
+  async function nextProblem() {
+    setPhase("loading"); setPicked(null); setExplain(""); setMood("idle");
+    let p;
+    const lv = player.level;
+    const roll = Math.random();
+    try {
+      if (lv >= 5 && roll < 0.5) p = await genOyou(lv);
+      else if (lv >= 3 && roll < 0.7) p = genHyojun();
+      else p = genKihon(lv);
+    } catch { p = genHyojun(); }
+    const ch = p.choices || makeChoices(p.a);
+    setProblem(p); setChoices(ch);
+    setMode(pickAnswerMode(player.level, p.a)); setInputVal("");
+    setPhase("answer");
+  }
+  useEffect(() => { nextProblem(); /* eslint-disable-next-line */ }, []);
+
+  async function fetchExplain(extra) {
+    setExplaining(true);
+    try {
+      if (convo.current.length === 0) {
+        convo.current = [{ role: "user", content: `問題：${problem.q}　正解：${problem.a}。生徒が間違えました。まずは2〜3行だけ。やさしい励ましと、答えにつながる小さなヒントを1つだけ伝えて。くわしい手順はまだ書かないで。` }];
+      } else if (extra) {
+        convo.current.push({ role: "user", content: extra });
+      }
+      const txt = await callClaude(convo.current, EXPLAIN_SYSTEM);
+      convo.current.push({ role: "assistant", content: txt });
+      setExplain(txt);
+    } catch {
+      setExplain(localExplain(problem));
+    } finally { setExplaining(false); }
+  }
+
+  function answer(val) {
+    if (phase !== "answer") return;
+    setPicked(val);
+    const correct = val === problem.a;
+    setPhase("result");
+    if (correct) {
+      setMood("happy");
+      setBossHit(true); setTimeout(() => setBossHit(false), 500);
+      const nb = Math.max(0, bossHP - HIT_DMG); setBossHP(nb);
+      setPlayer(pl => {
+        const xp = pl.xp + 1, coins = pl.coins + 10;
+        const need = pl.level * 3;
+        return xp >= need ? { level: pl.level + 1, xp: 0, coins } : { ...pl, xp, coins };
+      });
+      if (nb <= 0) { setTimeout(onWin, 900); }
+    } else {
+      setMood("sad");
+      setHp(h => Math.max(0, h - TAKE_DMG));
+      convo.current = [];
+      fetchExplain();
+    }
+  }
+
+  function submitInput() {
+    if (phase !== "answer") return;
+    const v = parseInput(inputVal);
+    if (v === null) return; // 空や記号だけのときは何もしない
+    answer(v);
+  }
+  function toggleSign() {
+    setInputVal(s => (s.startsWith("-") ? s.slice(1) : "-" + s));
+  }
+
+  const dead = hp <= 0;
+
+  return (
+    <div style={{ animation: "rino-pop .35s ease" }}>
+      <HUD p={player} name={nickname} />
+      <div style={{ ...clay(C.bg1), padding: 14, marginBottom: 12 }}>
+        <div style={{ textAlign: "center", fontWeight: 900, color: C.danger, marginBottom: 4 }}>👾 {t("bossName")}</div>
+        <DarkNumber hit={bossHit} />
+        <HPBar label={t("bossHP")} value={bossHP} max={BOSS_HP} color={C.danger} />
+      </div>
+
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 10 }}>
+        <Hero accent={char?.accent} mood={mood} size={92} />
+        <div style={{ flex: 1 }}><HPBar label={t("hpOf", nickname)} value={hp} max={PLAYER_HP} color={C.mint} /></div>
+      </div>
+
+      {dead ? (
+        <div style={{ ...clay(C.bg1), padding: 18, textAlign: "center" }}>
+          <p style={{ fontWeight: 800, marginBottom: 12 }}>{t("deadMsg")}<br />{t("deadMsg2")}</p>
+          <Btn full bg={C.aqua} onClick={() => { setHp(PLAYER_HP); nextProblem(); }}>
+            <RefreshCw size={18} style={{ verticalAlign: "-3px" }} /> {t("retry")}
+          </Btn>
+        </div>
+      ) : phase === "loading" ? (
+        <div style={{ ...clay(C.bg1), padding: 26, textAlign: "center" }}>
+          <div style={{ margin: "0 auto 10px", width: 40, height: 40, borderRadius: "50%", border: `5px solid rgba(255,255,255,.12)`, borderTopColor: C.aqua, animation: "rino-spin 1s linear infinite" }} />
+          <span style={{ color: C.inkDim, fontWeight: 700 }}>{t("callingProblem")}</span>
+        </div>
+      ) : (
+        <div style={{ ...clay(C.bg1), padding: 18 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <span style={{ fontSize: 12, fontWeight: 800, color: C.bg0, background: C.butter, padding: "3px 10px", borderRadius: 999 }}>{problem.kind}</span>
+            <span style={{ fontSize: 12, color: C.inkDim }}>{t("attackHint")}</span>
+          </div>
+          <div style={{ textAlign: "center", fontSize: 28, fontWeight: 900, margin: "10px 0 18px", letterSpacing: 1 }}>{problem.q}{problem.kind === "応用" ? "" : " ="}</div>
+          {mode === "input" ? (
+            <div>
+              {phase !== "result" && (
+                <div style={{ fontSize: 12, color: C.inkDim, textAlign: "center", marginBottom: 8 }}>
+                  {t("inputHint")}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                <button className="rino-btn" onClick={toggleSign} disabled={phase === "result"}
+                  style={{ ...clay(C.butter), border: "none", width: 56, fontSize: 22, fontWeight: 900, color: C.bg0, cursor: phase === "result" ? "default" : "pointer" }}>±</button>
+                <input type="text" inputMode="numeric" value={inputVal}
+                  onChange={e => setInputVal(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") submitInput(); }}
+                  disabled={phase === "result"} placeholder={t("inputPlaceholder")}
+                  style={{ ...clay(C.bg2, false), flex: 1, border: "none", outline: "none", color: C.ink, fontSize: 24, fontWeight: 900, textAlign: "center", padding: "12px 10px" }} />
+              </div>
+              {phase !== "result"
+                ? <Btn full bg={C.lav} onClick={submitInput}>{t("answerBtn")}</Btn>
+                : <div style={{ textAlign: "center", fontWeight: 800, color: picked === problem.a ? C.mint : C.danger }}>
+                    {t("yourAnswer")}{picked}{picked === problem.a ? t("correctMark") : t("answerWas", problem.a)}
+                  </div>}
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              {choices.map((c, i) => {
+                const isCorrect = c === problem.a, isPicked = c === picked;
+                let bg = C.lav;
+                if (phase === "result") { if (isCorrect) bg = C.mint; else if (isPicked) bg = C.danger; else bg = "#5b5080"; }
+                return (
+                  <button key={i} className="rino-btn" disabled={phase === "result"} onClick={() => answer(c)}
+                    style={{ ...clay(bg), border: "none", padding: "16px 0", fontSize: 22, fontWeight: 900, color: C.bg0, cursor: phase === "result" ? "default" : "pointer" }}>
+                    {c}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {phase === "result" && picked === problem.a && (
+            <div style={{ textAlign: "center", marginTop: 14 }}>
+              <p style={{ color: C.mint, fontWeight: 900, fontSize: 18 }}>{t("correctPlus")} <Coins size={16} style={{ verticalAlign: "-2px" }} /></p>
+              {bossHP > 0 && <Btn full bg={C.aqua} style={{ marginTop: 10 }} onClick={nextProblem}>{t("nextSpell")}</Btn>}
+            </div>
+          )}
+
+          {phase === "result" && picked !== problem.a && (
+            <ExplainPanel explain={explain} explaining={explaining}
+              onWhy={() => fetchExplain("「なんで？」と聞かれました。なぜその答えになるのか、考え方のステップを順番に、わかりやすく説明して。")}
+              onEasier={() => fetchExplain("「もっとかんたんに」と言われました。これまでとは別の、身近なたとえ（温度計・エレベーターの階・おこづかいの貸し借りなど）を1つだけ使って、いちばんやさしく説明して。同じ説明のくり返しは避けて。")}
+              onNext={nextProblem} />
+          )}
+        </div>
+      )}
+
+      <div style={{ textAlign: "center", marginTop: 12 }}>
+        <button className="rino-btn" onClick={onHome} style={{ background: "none", border: "none", color: C.inkDim, fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>{t("backToTrials")}</button>
+      </div>
+    </div>
+  );
+}
+
+/* AI解説パネル */
+function ExplainPanel({ explain, explaining, onWhy, onEasier, onNext }) {
+  return (
+    <div style={{ marginTop: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center", marginBottom: 6 }}>
+        <Magi size={84} />
+        <p style={{ color: C.peach, fontWeight: 900, textAlign: "left", margin: 0 }}>
+          {TEACHER}：<br />{t("teacherIntro")}
+        </p>
+      </div>
+      <div style={{ ...clay(C.bg2, false), padding: 16, minHeight: 70, fontSize: 14, lineHeight: 1.8, whiteSpace: "pre-wrap" }}>
+        {explaining && !explain ? (
+          <span style={{ color: C.inkDim, display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <span style={{ width: 16, height: 16, borderRadius: "50%", border: `3px solid rgba(255,255,255,.15)`, borderTopColor: C.aqua, animation: "rino-spin 1s linear infinite", display: "inline-block" }} />
+            {TEACHER}{t("thinking")}
+          </span>
+        ) : (
+          <span><Lightbulb size={16} color={C.gold} style={{ verticalAlign: "-3px", marginRight: 4 }} />{explain}</span>
+        )}
+      </div>
+      <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+        <Btn bg={C.butter} style={{ flex: 1, padding: "11px 0", fontSize: 14 }} onClick={onWhy} disabled={explaining}>{t("why")}</Btn>
+        <Btn bg={C.peach} style={{ flex: 1, padding: "11px 0", fontSize: 14 }} onClick={onEasier} disabled={explaining}>{t("easier")}</Btn>
+      </div>
+      <Btn full bg={C.aqua} style={{ marginTop: 10 }} onClick={onNext}>{t("nextProblem")}</Btn>
+    </div>
+  );
+}
+
+/* ---------- 勝利 ---------- */
+function Victory({ char, player, nickname, onHome }) {
+  return (
+    <div style={{ textAlign: "center", animation: "rino-pop .4s ease" }}>
+      <div style={{ position: "relative" }}>
+        <Hero accent={char?.accent} mood="happy" size={170} />
+      </div>
+      <h2 style={{ fontSize: 26, fontWeight: 900, color: C.gold, textShadow: `0 0 20px ${C.gold}` }}>{t("sealBroken")}</h2>
+      <p style={{ color: C.inkDim, margin: "6px 0 18px" }}>{t("guardianReturned")}<br />{t("wellDone", nickname)}</p>
+      <div style={{ ...clay(C.bg1), padding: 18, marginBottom: 18 }}>
+        <div style={{ display: "flex", justifyContent: "space-around", fontWeight: 900 }}>
+          <span><Star size={18} color={C.butter} style={{ verticalAlign: "-3px" }} /> Lv.{player.level}</span>
+          <span><Coins size={18} color={C.gold} style={{ verticalAlign: "-3px" }} /> {player.coins}</span>
+          <span><Heart size={18} color={C.danger} style={{ verticalAlign: "-3px" }} /> {t("clear")}</span>
+        </div>
+      </div>
+      <Btn full bg={C.aqua} onClick={onHome}>{t("backToTrialsBtn")}</Btn>
+    </div>
+  );
+}
