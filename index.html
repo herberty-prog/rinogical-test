@@ -1,39 +1,37 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
-<title>Rinogical（りのじかる）</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Rinogical</title>
 
-<!-- PWA：ホーム画面にアプリとして追加できるようにする設定 -->
-<link rel="manifest" href="manifest.json" />
-<meta name="theme-color" content="#160f2e" />
-<meta name="mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="Rinogical" />
-<link rel="apple-touch-icon" href="icon-180.png" />
-<link rel="icon" type="image/png" href="icon-192.png" />
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-180.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Rinogical" />
+  <meta name="theme-color" content="#160f2e" />
 
-<style>
-  html, body { margin: 0; background: #0f0a1f; }
-  body { min-height: 100vh; display: flex; justify-content: center; }
-  #root { width: 100%; max-width: 480px; }
-  #boot { color: #c9bdf0; font-family: sans-serif; text-align: center; padding-top: 80px; }
-</style>
-<script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@18.2.0",
-    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client?external=react",
-    "lucide-react": "https://esm.sh/lucide-react@0.383.0?external=react"
+  <style>
+    html, body { margin: 0; background: #160f2e; }
+  </style>
+
+  <!-- importmap -->
+  <script type="importmap">
+  {
+    "imports": {
+      "react": "https://esm.sh/react@18.2.0",
+      "react-dom/client": "https://esm.sh/react-dom@18.2.0/client?external=react",
+      "lucide-react": "https://esm.sh/lucide-react@0.383.0?external=react"
+    }
   }
-}
-</script>
-<script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
+  </script>
+
+  <!-- Babel standalone -->
+  <script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
 </head>
 <body>
-  <div id="root"><div id="boot">よみこみ中…</div></div>
+  <div id="root"></div>
   <script type="text/babel" data-type="module" data-presets="react">
 import React, { useState, useEffect, useRef } from "react";
 import { Coins, Sparkles, Star, Heart, Lightbulb, ArrowRight, RefreshCw, Lock } from "lucide-react";
@@ -430,14 +428,87 @@ function localExplain(p) {
   ].join("\n");
 }
 
-/* 豆知識 */
-const TIPS = [
-  "マイナス×マイナスは…なんとプラス！",
-  "0より小さい数を『負（ふ）の数』というよ。",
-  "符号がそろえば、足すだけでOK。",
-  "ひき算は『反対の数をたす』とカンタンに。",
-  "数直線を思いうかべると間違えにくいよ。",
-];
+/* ===========================================================================
+   多言語の土台（i18n）
+   - 画面に出る文章は、すべてこの STR 辞書にまとめる。
+   - LANG を変えると言語が切り替わる（今は "ja" だけ。英語を足すなら STR.en を埋めて "en" に）。
+   - en などに無いキーは自動で ja にフォールバックする（途中まで翻訳でも壊れない）。
+   - t("キー") で取り出す。変数が要る文は関数で持つ：t("hpOf", name) など。
+   - 注意：AI解説のプロンプトは「先生が話す言語」なので、英語追加時にここへ一緒に移す。
+   =========================================================================== */
+const LANG = "ja";
+
+const STR = {
+  ja: {
+    appSubtitle: "りのじかる魔法学校",
+    tipLabel: "豆知識：",
+    tips: [
+      "マイナス×マイナスは…なんとプラス！",
+      "0より小さい数を『負（ふ）の数』というよ。",
+      "符号がそろえば、足すだけでOK。",
+      "ひき算は『反対の数をたす』とカンタンに。",
+      "数直線を思いうかべると間違えにくいよ。",
+    ],
+    chooseBuddy: "あいぼうをえらぶ",
+    chooseBuddySub: "いっしょに「無知の呪い」をとこう",
+    charDesc: { myao: "ねこ耳の見習い魔導士", ruu: "しっぽが自慢の魔法使い" },
+    nameTitle: "なんて呼べばいい？",
+    nameSub: "この呼び方で、ゲーム中も親画面でも呼ぶよ",
+    nickLabel: "呼ばれ方（ニックネーム）",
+    nickPlaceholder: "例：けいくん",
+    next: "すすむ",
+    tutHello: "ようこそ、",
+    tutHelloEnd: "。",
+    tutCurse: "りのじかる魔法学校に「無知の呪い」がかけられた。",
+    tutSeal: "７つの試練の間にある封印を解き、守護者を元にもどそう。",
+    tutMechanism: "問題を解く＝魔法の力で呪いを解く。さあ、最初の間へ。",
+    startAdventure: "ぼうけんをはじめる ✦",
+    chooseTrial: "試練の間をえらぶ",
+    rooms: [
+      { name: "暗黒の数字の間", sub: "正負の数 / ボス：ダーク・ナンバー" },
+      { name: "文字式の回廊", sub: "Phase 2 で解放" },
+      { name: "方程式の聖堂", sub: "Phase 2 で解放" },
+    ],
+    bossName: "ダーク・ナンバー",
+    bossHP: "ボスHP",
+    hpOf: (n) => `${n} のHP`,
+    deadMsg: "だいじょうぶ、まだいける！🌱",
+    deadMsg2: "もう一度ちょうせんしよう。",
+    retry: "もう一回",
+    callingProblem: "魔法の問題を よびだし中…",
+    attackHint: "正解で攻撃 / 不正解でダメージ",
+    inputHint: "数字で答えてね（マイナスは ± ボタン）",
+    inputPlaceholder: "答えを入力",
+    answerBtn: "こたえる",
+    yourAnswer: "あなたの答え：",
+    correctMark: " ⭕",
+    answerWas: (a) => ` ／ 正解は ${a}`,
+    correctPlus: "せいかい！ +10",
+    nextSpell: "つぎの呪文へ ✦",
+    teacherIntro: "おしい！いっしょに見直そう 🌟",
+    thinking: "が考え中…",
+    why: "なんで？",
+    easier: "もっとかんたんに",
+    nextProblem: "つぎの問題にすすむ →",
+    backToTrials: "← 試練の間にもどる",
+    sealBroken: "封印を解いた！",
+    guardianReturned: "「暗黒の数字の間」の守護者がもどってきた。",
+    wellDone: (n) => `よくやったね、${n}！`,
+    clear: "クリア",
+    backToTrialsBtn: "試練の間にもどる",
+  },
+  en: {
+    // ここに英語を追加すると英語版になります（未訳のキーは日本語が出ます）。
+    // 例：appSubtitle: "Rinogical Magic School",
+  },
+};
+
+function t(key, ...args) {
+  const table = STR[LANG] || STR.ja;
+  let v = table[key];
+  if (v === undefined) v = STR.ja[key];
+  return typeof v === "function" ? v(...args) : v;
+}
 
 /* ===========================================================================
    開発者用：隠し進捗パネル
@@ -579,7 +650,7 @@ function Btn({ children, onClick, bg = C.lav, color = C.bg0, full, style, disabl
 /* ================= メインアプリ ================= */
 function Rinogical() {
   const [screen, setScreen] = useState("loading");
-  const [tip] = useState(() => TIPS[rint(0, TIPS.length - 1)]);
+  const [tip] = useState(() => { const a = t("tips"); return a[rint(0, a.length - 1)]; });
   const [character, setCharacter] = useState(null);
   const [nickname, setNickname] = useState("");
   const [player, setPlayer] = useState({ level: 1, xp: 0, coins: 0 });
@@ -662,11 +733,11 @@ function Loading({ tip }) {
   return (
     <div style={{ textAlign: "center", paddingTop: 80 }}>
       <div style={{ fontSize: 40, fontWeight: 900, letterSpacing: 1, color: C.ink, textShadow: `0 0 24px ${C.lav}` }}>Rinogical</div>
-      <div style={{ color: C.inkDim, marginTop: 4, fontWeight: 700 }}>りのじかる魔法学校</div>
+      <div style={{ color: C.inkDim, marginTop: 4, fontWeight: 700 }}>{t("appSubtitle")}</div>
       <div style={{ margin: "34px auto", width: 70, height: 70, borderRadius: "50%",
         border: `7px solid rgba(255,255,255,.12)`, borderTopColor: C.aqua, animation: "rino-spin 1s linear infinite" }} />
       <div style={{ ...clay(C.bg1), padding: "12px 16px", color: C.inkDim, fontSize: 14, fontWeight: 700, maxWidth: 320, margin: "0 auto" }}>
-        <span style={{ color: C.gold }}>豆知識：</span>{tip}
+        <span style={{ color: C.gold }}>{t("tipLabel")}</span>{tip}
       </div>
     </div>
   );
@@ -682,15 +753,15 @@ function CharacterSelect({ onPick }) {
   const chars = CHARACTERS;
   return (
     <div style={{ textAlign: "center", animation: "rino-pop .4s ease" }}>
-      <h2 style={{ fontSize: 24, fontWeight: 900, marginBottom: 4 }}>あいぼうをえらぶ</h2>
-      <p style={{ color: C.inkDim, marginBottom: 18, fontSize: 14 }}>いっしょに「無知の呪い」をとこう</p>
+      <h2 style={{ fontSize: 24, fontWeight: 900, marginBottom: 4 }}>{t("chooseBuddy")}</h2>
+      <p style={{ color: C.inkDim, marginBottom: 18, fontSize: 14 }}>{t("chooseBuddySub")}</p>
       <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
         {chars.map(c => (
           <button key={c.id} className="rino-btn" onClick={() => onPick(c)}
             style={{ ...clay(C.bg1), border: "none", padding: 14, cursor: "pointer", width: 180 }}>
             <Hero accent={c.accent} size={150} />
             <div style={{ fontWeight: 900, fontSize: 18, color: c.accent }}>{c.name}</div>
-            <div style={{ fontSize: 12, color: C.inkDim, marginTop: 2 }}>{c.desc}</div>
+            <div style={{ fontSize: 12, color: C.inkDim, marginTop: 2 }}>{t("charDesc")[c.id]}</div>
           </button>
         ))}
       </div>
@@ -705,14 +776,14 @@ function NameInput({ accent, nickname, setNickname, onNext }) {
   return (
     <div style={{ textAlign: "center", animation: "rino-pop .4s ease" }}>
       <Hero accent={accent} size={130} />
-      <h2 style={{ fontSize: 22, fontWeight: 900, margin: "8px 0 6px" }}>なんて呼べばいい？</h2>
-      <p style={{ color: C.inkDim, fontSize: 13, marginBottom: 18 }}>この呼び方で、ゲーム中も親画面でも呼ぶよ</p>
+      <h2 style={{ fontSize: 22, fontWeight: 900, margin: "8px 0 6px" }}>{t("nameTitle")}</h2>
+      <p style={{ color: C.inkDim, fontSize: 13, marginBottom: 18 }}>{t("nameSub")}</p>
       <div style={{ textAlign: "left", marginBottom: 22 }}>
-        <label style={{ fontWeight: 800, color: C.inkDim, fontSize: 14 }}>呼ばれ方（ニックネーム）</label>
-        <input style={field} value={nickname} onChange={e => setNickname(e.target.value)} placeholder="例：けいくん" maxLength={16} />
+        <label style={{ fontWeight: 800, color: C.inkDim, fontSize: 14 }}>{t("nickLabel")}</label>
+        <input style={field} value={nickname} onChange={e => setNickname(e.target.value)} placeholder={t("nickPlaceholder")} maxLength={16} />
       </div>
       <Btn full bg={accent} onClick={onNext} disabled={!nickname.trim()}>
-        すすむ <ArrowRight size={18} style={{ verticalAlign: "-3px" }} />
+        {t("next")} <ArrowRight size={18} style={{ verticalAlign: "-3px" }} />
       </Btn>
     </div>
   );
@@ -724,12 +795,12 @@ function Tutorial({ char, nickname, onStart }) {
     <div style={{ textAlign: "center", animation: "rino-pop .4s ease" }}>
       <Hero accent={char?.accent} mood="idle" size={140} />
       <div style={{ ...clay(C.bg1), padding: 20, textAlign: "left", margin: "10px 0 18px", lineHeight: 1.8, fontSize: 15 }}>
-        <p>ようこそ、<b style={{ color: char?.accent }}>{nickname}</b>。</p>
-        <p style={{ marginTop: 8 }}>りのじかる魔法学校に <b style={{ color: C.danger }}>「無知の呪い」</b> がかけられた。</p>
-        <p style={{ marginTop: 8 }}>７つの試練の間にある封印を解き、守護者を元にもどそう。</p>
-        <p style={{ marginTop: 8 }}>問題を解く＝魔法の力で呪いを解く。さあ、最初の間へ。</p>
+        <p>{t("tutHello")}<b style={{ color: char?.accent }}>{nickname}</b>{t("tutHelloEnd")}</p>
+        <p style={{ marginTop: 8 }}>{t("tutCurse")}</p>
+        <p style={{ marginTop: 8 }}>{t("tutSeal")}</p>
+        <p style={{ marginTop: 8 }}>{t("tutMechanism")}</p>
       </div>
-      <Btn full bg={C.aqua} onClick={onStart}>ぼうけんをはじめる ✦</Btn>
+      <Btn full bg={C.aqua} onClick={onStart}>{t("startAdventure")}</Btn>
     </div>
   );
 }
@@ -737,16 +808,14 @@ function Tutorial({ char, nickname, onStart }) {
 /* ---------- ホーム（試練の間）---------- */
 function Home({ char, player, nickname, onBoss }) {
   const [devOpen, setDevOpen] = useState(false);
-  const rooms = [
-    { name: "暗黒の数字の間", sub: "正負の数 / ボス：ダーク・ナンバー", open: true },
-    { name: "文字式の回廊", sub: "Phase 2 で解放", open: false },
-    { name: "方程式の聖堂", sub: "Phase 2 で解放", open: false },
-  ];
+  // 開放フラグだけコード側に残し、name/sub は辞書（t("rooms")）から取る
+  const roomOpen = [true, false, false];
+  const rooms = t("rooms").map((r, i) => ({ ...r, open: roomOpen[i] }));
   return (
     <div style={{ animation: "rino-pop .4s ease", position: "relative", minHeight: 520 }}>
       <HUD p={player} name={nickname} />
       <div style={{ textAlign: "center", marginBottom: 6 }}><Hero accent={char?.accent} size={120} /></div>
-      <h2 style={{ textAlign: "center", fontSize: 20, fontWeight: 900, marginBottom: 14 }}>試練の間をえらぶ</h2>
+      <h2 style={{ textAlign: "center", fontSize: 20, fontWeight: 900, marginBottom: 14 }}>{t("chooseTrial")}</h2>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {rooms.map((r, i) => (
           <button key={i} className="rino-btn" disabled={!r.open} onClick={r.open ? onBoss : undefined}
@@ -866,40 +935,40 @@ function Battle({ char, player, setPlayer, nickname, onWin, onHome }) {
     <div style={{ animation: "rino-pop .35s ease" }}>
       <HUD p={player} name={nickname} />
       <div style={{ ...clay(C.bg1), padding: 14, marginBottom: 12 }}>
-        <div style={{ textAlign: "center", fontWeight: 900, color: C.danger, marginBottom: 4 }}>👾 ダーク・ナンバー</div>
+        <div style={{ textAlign: "center", fontWeight: 900, color: C.danger, marginBottom: 4 }}>👾 {t("bossName")}</div>
         <DarkNumber hit={bossHit} />
-        <HPBar label="ボスHP" value={bossHP} max={BOSS_HP} color={C.danger} />
+        <HPBar label={t("bossHP")} value={bossHP} max={BOSS_HP} color={C.danger} />
       </div>
 
       <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 10 }}>
         <Hero accent={char?.accent} mood={mood} size={92} />
-        <div style={{ flex: 1 }}><HPBar label={`${nickname} のHP`} value={hp} max={PLAYER_HP} color={C.mint} /></div>
+        <div style={{ flex: 1 }}><HPBar label={t("hpOf", nickname)} value={hp} max={PLAYER_HP} color={C.mint} /></div>
       </div>
 
       {dead ? (
         <div style={{ ...clay(C.bg1), padding: 18, textAlign: "center" }}>
-          <p style={{ fontWeight: 800, marginBottom: 12 }}>だいじょうぶ、まだいける！🌱<br />もう一度ちょうせんしよう。</p>
+          <p style={{ fontWeight: 800, marginBottom: 12 }}>{t("deadMsg")}<br />{t("deadMsg2")}</p>
           <Btn full bg={C.aqua} onClick={() => { setHp(PLAYER_HP); nextProblem(); }}>
-            <RefreshCw size={18} style={{ verticalAlign: "-3px" }} /> もう一回
+            <RefreshCw size={18} style={{ verticalAlign: "-3px" }} /> {t("retry")}
           </Btn>
         </div>
       ) : phase === "loading" ? (
         <div style={{ ...clay(C.bg1), padding: 26, textAlign: "center" }}>
           <div style={{ margin: "0 auto 10px", width: 40, height: 40, borderRadius: "50%", border: `5px solid rgba(255,255,255,.12)`, borderTopColor: C.aqua, animation: "rino-spin 1s linear infinite" }} />
-          <span style={{ color: C.inkDim, fontWeight: 700 }}>魔法の問題を よびだし中…</span>
+          <span style={{ color: C.inkDim, fontWeight: 700 }}>{t("callingProblem")}</span>
         </div>
       ) : (
         <div style={{ ...clay(C.bg1), padding: 18 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <span style={{ fontSize: 12, fontWeight: 800, color: C.bg0, background: C.butter, padding: "3px 10px", borderRadius: 999 }}>{problem.kind}</span>
-            <span style={{ fontSize: 12, color: C.inkDim }}>正解で攻撃 / 不正解でダメージ</span>
+            <span style={{ fontSize: 12, color: C.inkDim }}>{t("attackHint")}</span>
           </div>
           <div style={{ textAlign: "center", fontSize: 28, fontWeight: 900, margin: "10px 0 18px", letterSpacing: 1 }}>{problem.q}{problem.kind === "応用" ? "" : " ="}</div>
           {mode === "input" ? (
             <div>
               {phase !== "result" && (
                 <div style={{ fontSize: 12, color: C.inkDim, textAlign: "center", marginBottom: 8 }}>
-                  数字で答えてね（マイナスは ± ボタン）
+                  {t("inputHint")}
                 </div>
               )}
               <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
@@ -908,13 +977,13 @@ function Battle({ char, player, setPlayer, nickname, onWin, onHome }) {
                 <input type="text" inputMode="numeric" value={inputVal}
                   onChange={e => setInputVal(e.target.value)}
                   onKeyDown={e => { if (e.key === "Enter") submitInput(); }}
-                  disabled={phase === "result"} placeholder="答えを入力"
+                  disabled={phase === "result"} placeholder={t("inputPlaceholder")}
                   style={{ ...clay(C.bg2, false), flex: 1, border: "none", outline: "none", color: C.ink, fontSize: 24, fontWeight: 900, textAlign: "center", padding: "12px 10px" }} />
               </div>
               {phase !== "result"
-                ? <Btn full bg={C.lav} onClick={submitInput}>こたえる</Btn>
+                ? <Btn full bg={C.lav} onClick={submitInput}>{t("answerBtn")}</Btn>
                 : <div style={{ textAlign: "center", fontWeight: 800, color: picked === problem.a ? C.mint : C.danger }}>
-                    あなたの答え：{picked}{picked === problem.a ? " ⭕" : ` ／ 正解は ${problem.a}`}
+                    {t("yourAnswer")}{picked}{picked === problem.a ? t("correctMark") : t("answerWas", problem.a)}
                   </div>}
             </div>
           ) : (
@@ -935,8 +1004,8 @@ function Battle({ char, player, setPlayer, nickname, onWin, onHome }) {
 
           {phase === "result" && picked === problem.a && (
             <div style={{ textAlign: "center", marginTop: 14 }}>
-              <p style={{ color: C.mint, fontWeight: 900, fontSize: 18 }}>せいかい！ +10 <Coins size={16} style={{ verticalAlign: "-2px" }} /></p>
-              {bossHP > 0 && <Btn full bg={C.aqua} style={{ marginTop: 10 }} onClick={nextProblem}>つぎの呪文へ ✦</Btn>}
+              <p style={{ color: C.mint, fontWeight: 900, fontSize: 18 }}>{t("correctPlus")} <Coins size={16} style={{ verticalAlign: "-2px" }} /></p>
+              {bossHP > 0 && <Btn full bg={C.aqua} style={{ marginTop: 10 }} onClick={nextProblem}>{t("nextSpell")}</Btn>}
             </div>
           )}
 
@@ -950,7 +1019,7 @@ function Battle({ char, player, setPlayer, nickname, onWin, onHome }) {
       )}
 
       <div style={{ textAlign: "center", marginTop: 12 }}>
-        <button className="rino-btn" onClick={onHome} style={{ background: "none", border: "none", color: C.inkDim, fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>← 試練の間にもどる</button>
+        <button className="rino-btn" onClick={onHome} style={{ background: "none", border: "none", color: C.inkDim, fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>{t("backToTrials")}</button>
       </div>
     </div>
   );
@@ -963,24 +1032,24 @@ function ExplainPanel({ explain, explaining, onWhy, onEasier, onNext }) {
       <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center", marginBottom: 6 }}>
         <Magi size={84} />
         <p style={{ color: C.peach, fontWeight: 900, textAlign: "left", margin: 0 }}>
-          {TEACHER}：<br />おしい！いっしょに見直そう 🌟
+          {TEACHER}：<br />{t("teacherIntro")}
         </p>
       </div>
       <div style={{ ...clay(C.bg2, false), padding: 16, minHeight: 70, fontSize: 14, lineHeight: 1.8, whiteSpace: "pre-wrap" }}>
         {explaining && !explain ? (
           <span style={{ color: C.inkDim, display: "inline-flex", alignItems: "center", gap: 8 }}>
             <span style={{ width: 16, height: 16, borderRadius: "50%", border: `3px solid rgba(255,255,255,.15)`, borderTopColor: C.aqua, animation: "rino-spin 1s linear infinite", display: "inline-block" }} />
-            {TEACHER}が考え中…
+            {TEACHER}{t("thinking")}
           </span>
         ) : (
           <span><Lightbulb size={16} color={C.gold} style={{ verticalAlign: "-3px", marginRight: 4 }} />{explain}</span>
         )}
       </div>
       <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-        <Btn bg={C.butter} style={{ flex: 1, padding: "11px 0", fontSize: 14 }} onClick={onWhy} disabled={explaining}>なんで？</Btn>
-        <Btn bg={C.peach} style={{ flex: 1, padding: "11px 0", fontSize: 14 }} onClick={onEasier} disabled={explaining}>もっとかんたんに</Btn>
+        <Btn bg={C.butter} style={{ flex: 1, padding: "11px 0", fontSize: 14 }} onClick={onWhy} disabled={explaining}>{t("why")}</Btn>
+        <Btn bg={C.peach} style={{ flex: 1, padding: "11px 0", fontSize: 14 }} onClick={onEasier} disabled={explaining}>{t("easier")}</Btn>
       </div>
-      <Btn full bg={C.aqua} style={{ marginTop: 10 }} onClick={onNext}>つぎの問題にすすむ →</Btn>
+      <Btn full bg={C.aqua} style={{ marginTop: 10 }} onClick={onNext}>{t("nextProblem")}</Btn>
     </div>
   );
 }
@@ -992,22 +1061,21 @@ function Victory({ char, player, nickname, onHome }) {
       <div style={{ position: "relative" }}>
         <Hero accent={char?.accent} mood="happy" size={170} />
       </div>
-      <h2 style={{ fontSize: 26, fontWeight: 900, color: C.gold, textShadow: `0 0 20px ${C.gold}` }}>封印を解いた！</h2>
-      <p style={{ color: C.inkDim, margin: "6px 0 18px" }}>「暗黒の数字の間」の守護者がもどってきた。<br />よくやったね、<b style={{ color: char?.accent }}>{nickname}</b>！</p>
+      <h2 style={{ fontSize: 26, fontWeight: 900, color: C.gold, textShadow: `0 0 20px ${C.gold}` }}>{t("sealBroken")}</h2>
+      <p style={{ color: C.inkDim, margin: "6px 0 18px" }}>{t("guardianReturned")}<br />{t("wellDone", nickname)}</p>
       <div style={{ ...clay(C.bg1), padding: 18, marginBottom: 18 }}>
         <div style={{ display: "flex", justifyContent: "space-around", fontWeight: 900 }}>
           <span><Star size={18} color={C.butter} style={{ verticalAlign: "-3px" }} /> Lv.{player.level}</span>
           <span><Coins size={18} color={C.gold} style={{ verticalAlign: "-3px" }} /> {player.coins}</span>
-          <span><Heart size={18} color={C.danger} style={{ verticalAlign: "-3px" }} /> クリア</span>
+          <span><Heart size={18} color={C.danger} style={{ verticalAlign: "-3px" }} /> {t("clear")}</span>
         </div>
       </div>
-      <Btn full bg={C.aqua} onClick={onHome}>試練の間にもどる</Btn>
+      <Btn full bg={C.aqua} onClick={onHome}>{t("backToTrialsBtn")}</Btn>
     </div>
   );
 }
 
 
-/* ---- ブラウザ描画（GitHub Pages用） ---- */
 import { createRoot } from "react-dom/client";
 createRoot(document.getElementById("root")).render(React.createElement(Rinogical));
 
