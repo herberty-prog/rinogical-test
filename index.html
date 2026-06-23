@@ -271,7 +271,7 @@ function DarkNumber({ hit, src = assetUrl(ASSETS.bosses.darknumber) }) {
   const useImg = src && !imgErr;
   const nums = ["7", "-3", "5", "-8", "0", "-1", "9", "-4"];
   return (
-    <div style={{ width: 240, height: 200, position: "relative" }}>
+    <div style={{ width: 240, height: 200, position: "relative", margin: "0 auto" }}>
       {nums.map((n, i) => (
         <span key={i} style={{
           position: "absolute", left: 24 + (i * 27) % 200, top: 120,
