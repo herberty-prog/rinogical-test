@@ -748,7 +748,7 @@ function Rinogical() {
   const baseGrad = `radial-gradient(1200px 500px at 50% -10%, ${C.bg2}, ${C.bg0} 70%)`;
   // 背景画像が読めた時だけ：上に薄暗いベールを重ねて文字を読みやすくする
   const bgStyle = bgUrl
-    ? `linear-gradient(rgba(11,8,26,.58), rgba(11,8,26,.80)), url("${bgUrl}") center/cover no-repeat, ${baseGrad}`
+    ? `linear-gradient(rgba(11,8,26,.30), rgba(11,8,26,.52)), url("${bgUrl}") center/cover no-repeat, ${baseGrad}`
     : baseGrad;
 
   return (
