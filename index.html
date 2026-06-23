@@ -195,7 +195,9 @@ const ASSETS = {
   bosses: {
     darknumber: "bosses/darknumber.png", // ダーク・ナンバー（正負の数のボス）
   },
-  // backgrounds: { ... } ← 次のステップで追加
+  backgrounds: {
+    adventure: "bg/adventure.png", // 全画面の背景（無ければ今までのグラデーション）
+  },
 };
 
 /* ================= キャラクター（猫耳・セーラー）================= */
@@ -693,6 +695,16 @@ function Rinogical() {
   const deviceIdRef = useRef(null);
   const persistReady = useRef(false); // 初回読込が終わるまで保存しない（既存データの上書き防止）
 
+  // 背景画像：読み込めたときだけ切り替える（無ければ今までのグラデーションのまま）
+  const [bgUrl, setBgUrl] = useState(null);
+  useEffect(() => {
+    const url = assetUrl(ASSETS.backgrounds && ASSETS.backgrounds.adventure);
+    if (!url) return;
+    const im = new Image();
+    im.onload = () => setBgUrl(url);
+    im.src = url;
+  }, []);
+
   /* 起動時：Firebase初期化 → デバイスID取得 → データ読込（無ければ初期設定へ） */
   useEffect(() => {
     let alive = true;
@@ -733,10 +745,15 @@ function Rinogical() {
   }, [player, nickname, character]);
 
   const font = { fontFamily: "'Hiragino Maru Gothic ProN','Yu Gothic UI','M PLUS Rounded 1c',system-ui,sans-serif" };
+  const baseGrad = `radial-gradient(1200px 500px at 50% -10%, ${C.bg2}, ${C.bg0} 70%)`;
+  // 背景画像が読めた時だけ：上に薄暗いベールを重ねて文字を読みやすくする
+  const bgStyle = bgUrl
+    ? `linear-gradient(rgba(11,8,26,.58), rgba(11,8,26,.80)), url("${bgUrl}") center/cover no-repeat, ${baseGrad}`
+    : baseGrad;
 
   return (
     <div style={{ ...font, minHeight: 620, color: C.ink, position: "relative", overflow: "hidden",
-      background: `radial-gradient(1200px 500px at 50% -10%, ${C.bg2}, ${C.bg0} 70%)`, padding: "26px 18px", borderRadius: 24 }}>
+      background: bgStyle, padding: "26px 18px", borderRadius: 24 }}>
       <Keyframes />
       {/* 背景のルーン */}
       {["✦", "✧", "⚝", "❉", "✺", "✦"].map((r, i) => (
