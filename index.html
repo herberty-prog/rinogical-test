@@ -502,6 +502,16 @@ const STR = {
     tutMechanism: "問題を解く＝魔法の力で呪いを解く。さあ、最初の間へ。",
     startAdventure: "ぼうけんをはじめる ✦",
     chooseTrial: "試練の間をえらぶ",
+    chooseSubject: "きょうは どれに ちょうせん？",
+    subjects: [
+      { name: "数学", teacher: "マギ先生" },
+      { name: "英語", teacher: "ルミ先生" },
+      { name: "国語", teacher: "ソラ先生" },
+      { name: "理科", teacher: "ミルス先生" },
+      { name: "社会", teacher: "クロス先生" },
+    ],
+    comingSoon: "準備中だよ！ もうすこし まってね 🌱",
+    backToSubjects: "← 科目にもどる",
     rooms: [
       { name: "暗黒の数字の間", sub: "正負の数 / ボス：ダーク・ナンバー" },
       { name: "文字式の回廊", sub: "Phase 2 で解放" },
@@ -770,12 +780,13 @@ function Rinogical() {
             onNext={() => setScreen("tutorial")} />
         )}
         {screen === "tutorial" && <Tutorial char={character} nickname={nickname} onStart={() => setScreen("home")} />}
-        {screen === "home" && <Home char={character} player={player} nickname={nickname} onBoss={() => setScreen("battle")} />}
+        {screen === "home" && <SubjectHome char={character} player={player} nickname={nickname} onMath={() => setScreen("trials")} />}
+        {screen === "trials" && <Home char={character} player={player} nickname={nickname} onBoss={() => setScreen("battle")} onBack={() => setScreen("home")} />}
         {screen === "battle" && (
           <Battle char={character} player={player} setPlayer={setPlayer} nickname={nickname}
-            onWin={() => setScreen("victory")} onHome={() => setScreen("home")} />
+            onWin={() => setScreen("victory")} onHome={() => setScreen("trials")} />
         )}
-        {screen === "victory" && <Victory char={character} player={player} nickname={nickname} onHome={() => setScreen("home")} />}
+        {screen === "victory" && <Victory char={character} player={player} nickname={nickname} onHome={() => setScreen("trials")} />}
       </div>
     </div>
   );
@@ -858,8 +869,44 @@ function Tutorial({ char, nickname, onStart }) {
   );
 }
 
+/* ---------- 科目をえらぶ（Phase2 ホーム）---------- */
+function SubjectHome({ char, player, nickname, onMath }) {
+  const [soon, setSoon] = useState(false);
+  const emojis = ["➗", "🔤", "✍️", "🔬", "🌏"];
+  const open = [true, false, false, false, false]; // 数学だけ開放（他は準備中）
+  const subs = t("subjects").map((s, i) => ({ ...s, emoji: emojis[i], open: open[i] }));
+  return (
+    <div style={{ animation: "rino-pop .4s ease", position: "relative", minHeight: 520 }}>
+      <HUD p={player} name={nickname} />
+      <div style={{ textAlign: "center", marginBottom: 6 }}>
+        <Hero accent={char?.accent} size={110} src={assetUrl(char?.img)} />
+      </div>
+      <h2 style={{ textAlign: "center", fontSize: 20, fontWeight: 900, marginBottom: 14 }}>{t("chooseSubject")}</h2>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        {subs.map((s, i) => (
+          <button key={i} className="rino-btn"
+            onClick={s.open ? onMath : () => setSoon(true)}
+            style={{ ...clay(s.open ? C.bg1 : "#221a3d"), border: "none", padding: "16px 12px", textAlign: "center",
+              cursor: "pointer", opacity: s.open ? 1 : .6,
+              ...(s.open ? { animation: "rino-glow 2.6s ease-in-out infinite" } : {}) }}>
+            <div style={{ fontSize: 34, marginBottom: 4 }}>{s.open ? s.emoji : "🔒"}</div>
+            <div style={{ fontWeight: 900, fontSize: 16, color: s.open ? C.aqua : C.inkDim }}>{s.name}</div>
+            <div style={{ fontSize: 11, color: C.inkDim, marginTop: 2 }}>{s.teacher}</div>
+          </button>
+        ))}
+      </div>
+      {soon && (
+        <div style={{ ...clay(C.bg1), marginTop: 14, padding: "12px 16px", textAlign: "center",
+          color: C.gold, fontWeight: 800, fontSize: 14, animation: "rino-pop .3s ease" }}>
+          {t("comingSoon")}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ---------- ホーム（試練の間）---------- */
-function Home({ char, player, nickname, onBoss }) {
+function Home({ char, player, nickname, onBoss, onBack }) {
   const [devOpen, setDevOpen] = useState(false);
   // 開放フラグだけコード側に残し、name/sub は辞書（t("rooms")）から取る
   const roomOpen = [true, false, false];
@@ -883,6 +930,16 @@ function Home({ char, player, nickname, onBoss }) {
           </button>
         ))}
       </div>
+
+      {onBack && (
+        <div style={{ textAlign: "center", marginTop: 16 }}>
+          <button onClick={onBack} className="rino-btn"
+            style={{ background: "transparent", border: "none", color: C.inkDim, fontWeight: 700,
+              fontSize: 13, cursor: "pointer", textDecoration: "underline" }}>
+            {t("backToSubjects")}
+          </button>
+        </div>
+      )}
 
       {/* 開発者用：極小・薄色の隠しボタン（右下隅）。DEV_PANEL_ENABLED=false で消える */}
       {DEV_PANEL_ENABLED && (
