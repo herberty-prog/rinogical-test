@@ -275,10 +275,10 @@ function Hero({ mood = "idle", accent = C.lav, size = 200, src = null }) {
 }
 
 /* ================= ボス：ダーク・ナンバー ================= */
-function DarkNumber({ hit, src = assetUrl(ASSETS.bosses.darknumber) }) {
+function DarkNumber({ hit, src = assetUrl(ASSETS.bosses.darknumber), tokens }) {
   const [imgErr, setImgErr] = useState(false);
   const useImg = src && !imgErr;
-  const nums = ["7", "-3", "5", "-8", "0", "-1", "9", "-4"];
+  const nums = tokens && tokens.length ? tokens : ["7", "-3", "5", "-8", "0", "-1", "9", "-4"];
   return (
     <div style={{ width: 240, height: 200, position: "relative", margin: "0 auto" }}>
       {nums.map((n, i) => (
@@ -473,6 +473,79 @@ function localExplain(p) {
   ].join("\n");
 }
 
+/* ================= 答え合わせ（数値／文字 両対応）================= */
+function normText(s) {
+  return String(s == null ? "" : s).trim().toLowerCase()
+    .replace(/\s+/g, " ").replace(/[.．。!?！？]+$/,"");
+}
+function sameAns(val, p) {
+  return p && p.type === "number" ? val === p.a : normText(val) === normText(p.a);
+}
+
+/* ================= 英語（第1単元：be動詞）=================
+   ・問題はすべてアプリ用のオリジナル英文（教科書本文は使わない）。
+   ・どの主語でも文法的に正しい述語だけを使い、単複の不一致を避ける。 */
+const BE_DATA = [
+  { s: "I", be: "am" }, { s: "You", be: "are" }, { s: "We", be: "are" },
+  { s: "They", be: "are" }, { s: "He", be: "is" }, { s: "She", be: "is" },
+  { s: "It", be: "is" }, { s: "Tom", be: "is" }, { s: "Yuki", be: "is" },
+  { s: "My friends", be: "are" },
+];
+const BE_PRED = ["happy", "kind", "busy", "tall", "hungry", "fine", "sleepy", "from Tokyo", "at school", "good at music"];
+
+function engPick() {
+  const d = BE_DATA[rint(0, BE_DATA.length - 1)];
+  const pred = BE_PRED[rint(0, BE_PRED.length - 1)];
+  return { s: d.s, be: d.be, pred };
+}
+
+/* レベルで出題形式を変える：Lv1-2=4択 / Lv3-4=4択+並べ替え / Lv5+=4択+並べ替え+入力 */
+function genEnglishProblem(level) {
+  const roll = Math.random();
+  let form;
+  if (level >= 5) form = roll < 0.5 ? "choice" : roll < 0.8 ? "arrange" : "input";
+  else if (level >= 3) form = roll < 0.7 ? "choice" : "arrange";
+  else form = "choice";
+
+  const { s, be, pred } = engPick();
+  const CH = ["am", "is", "are", "be"];
+
+  if (form === "arrange") {
+    const words = [s, be, ...pred.split(" ")];
+    return { type: "text", ui: "arrange", kind: "ならべかえ", q: "", a: words.join(" "), tiles: shuffle(words.slice()) };
+  }
+  if (form === "input") {
+    return { type: "text", ui: "input", kind: "入力", q: `${s} ___ ${pred}.`, a: be, choices: CH };
+  }
+  return { type: "text", ui: "choice", kind: "超基本", q: `${s} ___ ${pred}.`, a: be, choices: CH };
+}
+
+/* 英語のローカル解説フォールバック（電波が悪いとき用） */
+function localExplainEn(p) {
+  return [
+    "ナイスチャレンジ！👏 いっしょに見直そう。",
+    "・主語（しゅご）が「I」なら am。",
+    "・「You」や 2人以上（we / they / 複数）なら are。",
+    "・「He / She / It」など 1人・1つなら is。",
+    "もう一回いける！🌟",
+  ].join("\n");
+}
+
+/* 英語の先生（ルミ先生）の解説スタイル */
+const ENGLISH_TEACHER = "ルミ先生";
+const ENGLISH_EXPLAIN_SYSTEM =
+  `あなたは中学1年生のための、やさしい英語の先生「${ENGLISH_TEACHER}」です。` +
+  "明るく親しみやすい言葉の魔法使いで、アルファベットや羽ペンのモチーフが好きです。" +
+  "解説スタイル：①短文で ②箇条書きは行頭に「・」だけ ③むずかしい漢字にはふりがな ④まず良いところを褒める ⑤絶対に責めない・否定しない。" +
+  "重要：マークダウン記号（** や * や # や ```）は絶対に使わない。" +
+  "単元は be動詞（am / is / are）。主語による使い分け（I→am、You・複数→are、3人称単数→is）を、答えそのものより『見分け方』を中心に伝える。絵文字は1〜2個までOK。毎回みじかく。";
+
+/* 科目ごとの設定（ボス名・浮遊トークン・先生・解説）をここ1か所で管理 */
+const SUBJECT_META = {
+  math: { bossName: "ダーク・ナンバー", tokens: ["7", "-3", "5", "-8", "0", "-1", "9", "-4"], teacher: TEACHER, explain: EXPLAIN_SYSTEM },
+  english: { bossName: "ミステイク・スペクター", tokens: ["A", "B", "is", "am", "are", "?", "the", "be"], teacher: ENGLISH_TEACHER, explain: ENGLISH_EXPLAIN_SYSTEM },
+};
+
 /* ===========================================================================
    多言語の土台（i18n）
    - 画面に出る文章は、すべてこの STR 辞書にまとめる。
@@ -519,6 +592,8 @@ const STR = {
     ],
     comingSoon: "準備中だよ！ もうすこし まってね 🌱",
     backToSubjects: "← 科目にもどる",
+    arrangeHint: "ことばを ならべて 文を つくろう",
+    clearBtn: "けす",
     rooms: [
       { name: "暗黒の数字の間", sub: "正負の数 / ボス：ダーク・ナンバー" },
       { name: "文字式の回廊", sub: "Phase 2 で解放" },
@@ -711,6 +786,7 @@ function Rinogical() {
   // coins は全科目共通。level/xp は科目ごと（数学・英語…）に分けて持つ
   const [player, setPlayer] = useState({ coins: 0, subjects: { math: { level: 1, xp: 0 }, english: { level: 1, xp: 0 } } });
   const [subject, setSubject] = useState("math"); // いまプレイ中の科目
+  const [battleReturn, setBattleReturn] = useState("trials"); // バトル後の戻り先
   const prog = (player.subjects && player.subjects[subject]) || { level: 1, xp: 0 };
   const deviceIdRef = useRef(null);
   const persistReady = useRef(false); // 初回読込が終わるまで保存しない（既存データの上書き防止）
@@ -807,13 +883,15 @@ function Rinogical() {
             onNext={() => setScreen("tutorial")} />
         )}
         {screen === "tutorial" && <Tutorial char={character} nickname={nickname} onStart={() => setScreen("home")} />}
-        {screen === "home" && <SubjectHome char={character} coins={player.coins} nickname={nickname} onMath={() => { setSubject("math"); setScreen("trials"); }} />}
-        {screen === "trials" && <Home char={character} level={prog.level} coins={player.coins} nickname={nickname} onBoss={() => setScreen("battle")} onBack={() => setScreen("home")} />}
+        {screen === "home" && <SubjectHome char={character} coins={player.coins} nickname={nickname}
+          onMath={() => { setSubject("math"); setScreen("trials"); }}
+          onEnglish={() => { setSubject("english"); setBattleReturn("home"); setScreen("battle"); }} />}
+        {screen === "trials" && <Home char={character} level={prog.level} coins={player.coins} nickname={nickname} onBoss={() => { setBattleReturn("trials"); setScreen("battle"); }} onBack={() => setScreen("home")} />}
         {screen === "battle" && (
           <Battle char={character} player={player} setPlayer={setPlayer} subjectKey={subject} prog={prog} nickname={nickname}
-            onWin={() => setScreen("victory")} onHome={() => setScreen("trials")} />
+            onWin={() => setScreen("victory")} onHome={() => setScreen(battleReturn)} />
         )}
-        {screen === "victory" && <Victory char={character} level={prog.level} coins={player.coins} nickname={nickname} onHome={() => setScreen("trials")} />}
+        {screen === "victory" && <Victory char={character} level={prog.level} coins={player.coins} nickname={nickname} onHome={() => setScreen(battleReturn)} />}
       </div>
     </div>
   );
@@ -910,11 +988,12 @@ function TeacherIcon({ src, emoji, size = 50, dim = false }) {
 }
 
 /* ---------- 科目をえらぶ（Phase2 ホーム）---------- */
-function SubjectHome({ char, coins, nickname, onMath }) {
+function SubjectHome({ char, coins, nickname, onMath, onEnglish }) {
   const [soon, setSoon] = useState(false);
   const emojis = ["➗", "🔤", "✍️", "🔬", "🌏"];
   const teacherIds = ["magi", "rumi", "sora", "mils", "kros"];
-  const open = [true, false, false, false, false]; // 数学だけ開放（他は準備中）
+  const open = [true, true, false, false, false]; // 数学・英語を開放（他は準備中）
+  const handlers = [onMath, onEnglish];
   const subs = t("subjects").map((s, i) => ({
     ...s, emoji: emojis[i], open: open[i],
     teacherImg: assetUrl(ASSETS.teachers[teacherIds[i]]),
@@ -929,7 +1008,7 @@ function SubjectHome({ char, coins, nickname, onMath }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         {subs.map((s, i) => (
           <button key={i} className="rino-btn"
-            onClick={s.open ? onMath : () => setSoon(true)}
+            onClick={s.open ? (handlers[i] || onMath) : () => setSoon(true)}
             style={{ ...clay(s.open ? C.bg1 : "#221a3d"), border: "none", padding: "16px 12px", textAlign: "center",
               cursor: "pointer", opacity: s.open ? 1 : .6,
               ...(s.open ? { animation: "rino-glow 2.6s ease-in-out infinite" } : {}) }}>
@@ -1006,6 +1085,7 @@ function Home({ char, level, coins, nickname, onBoss, onBack }) {
 const BOSS_HP = 100, PLAYER_HP = 100, HIT_DMG = 25, TAKE_DMG = 20;
 
 function Battle({ char, player, setPlayer, subjectKey, prog, nickname, onWin, onHome }) {
+  const meta = SUBJECT_META[subjectKey] || SUBJECT_META.math;
   const [bossHP, setBossHP] = useState(BOSS_HP);
   const [hp, setHp] = useState(PLAYER_HP);
   const [problem, setProblem] = useState(null);
@@ -1014,25 +1094,32 @@ function Battle({ char, player, setPlayer, subjectKey, prog, nickname, onWin, on
   const [bossHit, setBossHit] = useState(false);
   const [phase, setPhase] = useState("loading"); // loading | answer | result
   const [picked, setPicked] = useState(null);
-  const [mode, setMode] = useState("choice");   // "choice" か "input"
+  const [mode, setMode] = useState("choice");   // "choice" | "input" | "arrange"
   const [inputVal, setInputVal] = useState("");
+  const [built, setBuilt] = useState([]);        // 並べ替え：選んだ札の並び
   const [explain, setExplain] = useState("");
   const [explaining, setExplaining] = useState(false);
   const convo = useRef([]);
 
   async function nextProblem() {
-    setPhase("loading"); setPicked(null); setExplain(""); setMood("idle");
+    setPhase("loading"); setPicked(null); setExplain(""); setMood("idle"); setBuilt([]);
     let p;
     const lv = prog.level;
-    const roll = Math.random();
-    try {
-      if (lv >= 5 && roll < 0.5) p = await genOyou(lv);
-      else if (lv >= 3 && roll < 0.7) p = genHyojun();
-      else p = genKihon(lv);
-    } catch { p = genHyojun(); }
-    const ch = p.choices || makeChoices(p.a);
+    if (subjectKey === "english") {
+      p = genEnglishProblem(lv);
+    } else {
+      const roll = Math.random();
+      try {
+        if (lv >= 5 && roll < 0.5) p = await genOyou(lv);
+        else if (lv >= 3 && roll < 0.7) p = genHyojun();
+        else p = genKihon(lv);
+      } catch { p = genHyojun(); }
+      p.type = "number";
+      p.ui = pickAnswerMode(lv, p.a);
+    }
+    const ch = p.choices || (p.type === "number" ? makeChoices(p.a) : []);
     setProblem(p); setChoices(ch);
-    setMode(pickAnswerMode(prog.level, p.a)); setInputVal("");
+    setMode(p.ui || "choice"); setInputVal("");
     setPhase("answer");
   }
   useEffect(() => { nextProblem(); /* eslint-disable-next-line */ }, []);
@@ -1041,22 +1128,22 @@ function Battle({ char, player, setPlayer, subjectKey, prog, nickname, onWin, on
     setExplaining(true);
     try {
       if (convo.current.length === 0) {
-        convo.current = [{ role: "user", content: `問題：${problem.q}　正解：${problem.a}。生徒が間違えました。まずは2〜3行だけ。やさしい励ましと、答えにつながる小さなヒントを1つだけ伝えて。くわしい手順はまだ書かないで。` }];
+        convo.current = [{ role: "user", content: `問題：${problem.q || problem.a}　正解：${problem.a}。生徒が間違えました。まずは2〜3行だけ。やさしい励ましと、答えにつながる小さなヒントを1つだけ伝えて。くわしい手順はまだ書かないで。` }];
       } else if (extra) {
         convo.current.push({ role: "user", content: extra });
       }
-      const txt = await callClaude(convo.current, EXPLAIN_SYSTEM);
+      const txt = await callClaude(convo.current, meta.explain);
       convo.current.push({ role: "assistant", content: txt });
       setExplain(txt);
     } catch {
-      setExplain(localExplain(problem));
+      setExplain(subjectKey === "english" ? localExplainEn(problem) : localExplain(problem));
     } finally { setExplaining(false); }
   }
 
   function answer(val) {
     if (phase !== "answer") return;
     setPicked(val);
-    const correct = val === problem.a;
+    const correct = sameAns(val, problem);
     setPhase("result");
     if (correct) {
       setMood("happy");
@@ -1081,12 +1168,33 @@ function Battle({ char, player, setPlayer, subjectKey, prog, nickname, onWin, on
 
   function submitInput() {
     if (phase !== "answer") return;
-    const v = parseInput(inputVal);
-    if (v === null) return; // 空や記号だけのときは何もしない
-    answer(v);
+    if (problem.type === "number") {
+      const v = parseInput(inputVal);
+      if (v === null) return; // 空や記号だけのときは何もしない
+      answer(v);
+    } else {
+      const s = inputVal.trim();
+      if (s === "") return;
+      answer(s);
+    }
   }
   function toggleSign() {
     setInputVal(s => (s.startsWith("-") ? s.slice(1) : "-" + s));
+  }
+  // 並べ替え：札をタップで追加／取り消し
+  function pickTile(i) {
+    if (phase !== "answer") return;
+    if (built.includes(i)) return;
+    setBuilt(b => [...b, i]);
+  }
+  function undoTile() {
+    if (phase !== "answer") return;
+    setBuilt(b => b.slice(0, -1));
+  }
+  function submitArrange() {
+    if (phase !== "answer" || built.length === 0) return;
+    const sentence = built.map(i => problem.tiles[i]).join(" ");
+    answer(sentence);
   }
 
   const dead = hp <= 0;
@@ -1095,8 +1203,8 @@ function Battle({ char, player, setPlayer, subjectKey, prog, nickname, onWin, on
     <div style={{ animation: "rino-pop .35s ease" }}>
       <HUD level={prog.level} coins={player.coins} name={nickname} />
       <div style={{ ...clay(C.bg1), padding: 14, marginBottom: 12 }}>
-        <div style={{ textAlign: "center", fontWeight: 900, color: C.danger, marginBottom: 4 }}>👾 {t("bossName")}</div>
-        <DarkNumber hit={bossHit} />
+        <div style={{ textAlign: "center", fontWeight: 900, color: C.danger, marginBottom: 4 }}>👾 {meta.bossName}</div>
+        <DarkNumber hit={bossHit} tokens={meta.tokens} />
         <HPBar label={t("bossHP")} value={bossHP} max={BOSS_HP} color={C.danger} />
       </div>
 
@@ -1123,8 +1231,35 @@ function Battle({ char, player, setPlayer, subjectKey, prog, nickname, onWin, on
             <span style={{ fontSize: 12, fontWeight: 800, color: C.bg0, background: C.butter, padding: "3px 10px", borderRadius: 999 }}>{problem.kind}</span>
             <span style={{ fontSize: 12, color: C.inkDim }}>{t("attackHint")}</span>
           </div>
-          <div style={{ textAlign: "center", fontSize: 28, fontWeight: 900, margin: "10px 0 18px", letterSpacing: 1 }}>{problem.q}{problem.kind === "応用" ? "" : " ="}</div>
-          {mode === "input" ? (
+          <div style={{ textAlign: "center", fontSize: problem.type === "number" ? 28 : 22, fontWeight: 900, margin: "10px 0 18px", letterSpacing: problem.type === "number" ? 1 : 0 }}>
+            {mode === "arrange" ? t("arrangeHint") : <>{problem.q}{(problem.type === "number" && problem.kind !== "応用") ? " =" : ""}</>}
+          </div>
+          {mode === "arrange" ? (
+            <div>
+              <div style={{ ...clay(C.bg2, false), minHeight: 52, padding: "10px 12px", marginBottom: 10, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", justifyContent: "center" }}>
+                {built.length === 0
+                  ? <span style={{ color: C.inkDim, fontWeight: 700, fontSize: 13 }}>{t("inputHint")}</span>
+                  : built.map((ti, k) => (
+                      <span key={k} style={{ ...clay(C.lav), padding: "6px 12px", fontWeight: 900, color: C.bg0, fontSize: 18 }}>{problem.tiles[ti]}</span>
+                    ))}
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginBottom: 10 }}>
+                {problem.tiles.map((w, i) => (
+                  <button key={i} className="rino-btn" disabled={phase === "result" || built.includes(i)} onClick={() => pickTile(i)}
+                    style={{ ...clay(built.includes(i) ? "#5b5080" : C.butter), border: "none", padding: "10px 14px", fontSize: 18, fontWeight: 900, color: C.bg0,
+                      opacity: built.includes(i) ? .4 : 1, cursor: phase === "result" ? "default" : "pointer" }}>{w}</button>
+                ))}
+              </div>
+              {phase !== "result"
+                ? <div style={{ display: "flex", gap: 8 }}>
+                    <Btn bg={C.peach} style={{ flex: "0 0 auto", padding: "12px 16px" }} onClick={undoTile}>{t("clearBtn")}</Btn>
+                    <Btn full bg={C.lav} onClick={submitArrange}>{t("answerBtn")}</Btn>
+                  </div>
+                : <div style={{ textAlign: "center", fontWeight: 800, color: sameAns(picked, problem) ? C.mint : C.danger }}>
+                    {t("yourAnswer")}{picked}{sameAns(picked, problem) ? t("correctMark") : t("answerWas", problem.a)}
+                  </div>}
+            </div>
+          ) : mode === "input" ? (
             <div>
               {phase !== "result" && (
                 <div style={{ fontSize: 12, color: C.inkDim, textAlign: "center", marginBottom: 8 }}>
@@ -1132,9 +1267,11 @@ function Battle({ char, player, setPlayer, subjectKey, prog, nickname, onWin, on
                 </div>
               )}
               <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-                <button className="rino-btn" onClick={toggleSign} disabled={phase === "result"}
-                  style={{ ...clay(C.butter), border: "none", width: 56, fontSize: 22, fontWeight: 900, color: C.bg0, cursor: phase === "result" ? "default" : "pointer" }}>±</button>
-                <input type="text" inputMode="numeric" value={inputVal}
+                {problem.type === "number" && (
+                  <button className="rino-btn" onClick={toggleSign} disabled={phase === "result"}
+                    style={{ ...clay(C.butter), border: "none", width: 56, fontSize: 22, fontWeight: 900, color: C.bg0, cursor: phase === "result" ? "default" : "pointer" }}>±</button>
+                )}
+                <input type="text" inputMode={problem.type === "number" ? "numeric" : "text"} value={inputVal}
                   onChange={e => setInputVal(e.target.value)}
                   onKeyDown={e => { if (e.key === "Enter") submitInput(); }}
                   disabled={phase === "result"} placeholder={t("inputPlaceholder")}
@@ -1142,14 +1279,14 @@ function Battle({ char, player, setPlayer, subjectKey, prog, nickname, onWin, on
               </div>
               {phase !== "result"
                 ? <Btn full bg={C.lav} onClick={submitInput}>{t("answerBtn")}</Btn>
-                : <div style={{ textAlign: "center", fontWeight: 800, color: picked === problem.a ? C.mint : C.danger }}>
-                    {t("yourAnswer")}{picked}{picked === problem.a ? t("correctMark") : t("answerWas", problem.a)}
+                : <div style={{ textAlign: "center", fontWeight: 800, color: sameAns(picked, problem) ? C.mint : C.danger }}>
+                    {t("yourAnswer")}{picked}{sameAns(picked, problem) ? t("correctMark") : t("answerWas", problem.a)}
                   </div>}
             </div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               {choices.map((c, i) => {
-                const isCorrect = c === problem.a, isPicked = c === picked;
+                const isCorrect = sameAns(c, problem), isPicked = c === picked;
                 let bg = C.lav;
                 if (phase === "result") { if (isCorrect) bg = C.mint; else if (isPicked) bg = C.danger; else bg = "#5b5080"; }
                 return (
@@ -1162,17 +1299,19 @@ function Battle({ char, player, setPlayer, subjectKey, prog, nickname, onWin, on
             </div>
           )}
 
-          {phase === "result" && picked === problem.a && (
+          {phase === "result" && sameAns(picked, problem) && (
             <div style={{ textAlign: "center", marginTop: 14 }}>
               <p style={{ color: C.mint, fontWeight: 900, fontSize: 18 }}>{t("correctPlus")} <Coins size={16} style={{ verticalAlign: "-2px" }} /></p>
               {bossHP > 0 && <Btn full bg={C.aqua} style={{ marginTop: 10 }} onClick={nextProblem}>{t("nextSpell")}</Btn>}
             </div>
           )}
 
-          {phase === "result" && picked !== problem.a && (
-            <ExplainPanel explain={explain} explaining={explaining}
+          {phase === "result" && !sameAns(picked, problem) && (
+            <ExplainPanel explain={explain} explaining={explaining} teacher={meta.teacher}
               onWhy={() => fetchExplain("「なんで？」と聞かれました。なぜその答えになるのか、考え方のステップを順番に、わかりやすく説明して。")}
-              onEasier={() => fetchExplain("「もっとかんたんに」と言われました。これまでとは別の、身近なたとえ（温度計・エレベーターの階・おこづかいの貸し借りなど）を1つだけ使って、いちばんやさしく説明して。同じ説明のくり返しは避けて。")}
+              onEasier={() => fetchExplain(subjectKey === "english"
+                ? "「もっとかんたんに」と言われました。主語による be動詞の見分け方を、別の身近な言い方で、いちばんやさしく説明して。同じ説明のくり返しは避けて。"
+                : "「もっとかんたんに」と言われました。これまでとは別の、身近なたとえ（温度計・エレベーターの階・おこづかいの貸し借りなど）を1つだけ使って、いちばんやさしく説明して。同じ説明のくり返しは避けて。")}
               onNext={nextProblem} />
           )}
         </div>
@@ -1186,20 +1325,20 @@ function Battle({ char, player, setPlayer, subjectKey, prog, nickname, onWin, on
 }
 
 /* AI解説パネル */
-function ExplainPanel({ explain, explaining, onWhy, onEasier, onNext }) {
+function ExplainPanel({ explain, explaining, onWhy, onEasier, onNext, teacher = TEACHER }) {
   return (
     <div style={{ marginTop: 14 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center", marginBottom: 6 }}>
         <Magi size={84} />
         <p style={{ color: C.peach, fontWeight: 900, textAlign: "left", margin: 0 }}>
-          {TEACHER}：<br />{t("teacherIntro")}
+          {teacher}：<br />{t("teacherIntro")}
         </p>
       </div>
       <div style={{ ...clay(C.bg2, false), padding: 16, minHeight: 70, fontSize: 14, lineHeight: 1.8, whiteSpace: "pre-wrap" }}>
         {explaining && !explain ? (
           <span style={{ color: C.inkDim, display: "inline-flex", alignItems: "center", gap: 8 }}>
             <span style={{ width: 16, height: 16, borderRadius: "50%", border: `3px solid rgba(255,255,255,.15)`, borderTopColor: C.aqua, animation: "rino-spin 1s linear infinite", display: "inline-block" }} />
-            {TEACHER}{t("thinking")}
+            {teacher}{t("thinking")}
           </span>
         ) : (
           <span><Lightbulb size={16} color={C.gold} style={{ verticalAlign: "-3px", marginRight: 4 }} />{explain}</span>
