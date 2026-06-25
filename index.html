@@ -198,6 +198,13 @@ const ASSETS = {
   backgrounds: {
     adventure: "bg/adventure.png", // 全画面の背景（無ければ今までのグラデーション）
   },
+  teachers: {
+    magi: "teachers/magi.png", // マギ（数学）
+    rumi: "teachers/rumi.png", // ルミ（英語）
+    sora: "teachers/sora.png", // ソラ（国語）
+    mils: "teachers/mils.png", // ミルス（理科）
+    kros: "teachers/kros.png", // クロス（社会）
+  },
 };
 
 /* ================= キャラクター（猫耳・セーラー）================= */
@@ -666,11 +673,11 @@ function DevPanel({ onClose }) {
 }
 
 /* ================= ヘッダーHUD ================= */
-function HUD({ p, name }) {
+function HUD({ level, coins, name }) {
   return (
     <div style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "center", flexWrap: "wrap", marginBottom: 14 }}>
-      <Pill icon={<Star size={16} color={C.bg0} />} text={`Lv.${p.level}`} bg={C.butter} />
-      <Pill icon={<Coins size={16} color={C.bg0} />} text={`${p.coins}`} bg={C.gold} />
+      {level != null && <Pill icon={<Star size={16} color={C.bg0} />} text={`Lv.${level}`} bg={C.butter} />}
+      <Pill icon={<Coins size={16} color={C.bg0} />} text={`${coins}`} bg={C.gold} />
       <span style={{ color: C.inkDim, fontWeight: 700, fontSize: 14 }}>{name}</span>
     </div>
   );
@@ -701,7 +708,10 @@ function Rinogical() {
   const [tip] = useState(() => { const a = t("tips"); return a[rint(0, a.length - 1)]; });
   const [character, setCharacter] = useState(null);
   const [nickname, setNickname] = useState("");
-  const [player, setPlayer] = useState({ level: 1, xp: 0, coins: 0 });
+  // coins は全科目共通。level/xp は科目ごと（数学・英語…）に分けて持つ
+  const [player, setPlayer] = useState({ coins: 0, subjects: { math: { level: 1, xp: 0 }, english: { level: 1, xp: 0 } } });
+  const [subject, setSubject] = useState("math"); // いまプレイ中の科目
+  const prog = (player.subjects && player.subjects[subject]) || { level: 1, xp: 0 };
   const deviceIdRef = useRef(null);
   const persistReady = useRef(false); // 初回読込が終わるまで保存しない（既存データの上書き防止）
 
@@ -731,7 +741,20 @@ function Rinogical() {
           || { id: data.characterId || "myao", accent: data.characterAccent || C.lav };
         setNickname(data.nickname);
         setCharacter(ch);
-        setPlayer({ level: data.level ?? 1, xp: data.xp ?? 0, coins: data.coins ?? 0 });
+        // 旧データ（level/xp が直接入っている）→ subjects.math へ自動で引っ越し
+        let subjects;
+        if (data.subjects && typeof data.subjects === "object") {
+          subjects = {
+            math: data.subjects.math || { level: 1, xp: 0 },
+            english: data.subjects.english || { level: 1, xp: 0 },
+          };
+        } else {
+          subjects = {
+            math: { level: data.level ?? 1, xp: data.xp ?? 0 },
+            english: { level: 1, xp: 0 },
+          };
+        }
+        setPlayer({ coins: data.coins ?? 0, subjects });
         setScreen("home"); // 続きから
       } else {
         setScreen("character"); // 新規：初期設定へ
@@ -750,7 +773,11 @@ function Rinogical() {
       nickname,
       characterId: ch.id || null,
       characterAccent: ch.accent || null,
-      level: player.level, xp: player.xp, coins: player.coins,
+      coins: player.coins,
+      subjects: player.subjects,
+      // 互換用（古い形式しか見ない処理があっても困らないように、数学の値を残す）
+      level: (player.subjects.math || {}).level ?? 1,
+      xp: (player.subjects.math || {}).xp ?? 0,
     });
   }, [player, nickname, character]);
 
@@ -780,13 +807,13 @@ function Rinogical() {
             onNext={() => setScreen("tutorial")} />
         )}
         {screen === "tutorial" && <Tutorial char={character} nickname={nickname} onStart={() => setScreen("home")} />}
-        {screen === "home" && <SubjectHome char={character} player={player} nickname={nickname} onMath={() => setScreen("trials")} />}
-        {screen === "trials" && <Home char={character} player={player} nickname={nickname} onBoss={() => setScreen("battle")} onBack={() => setScreen("home")} />}
+        {screen === "home" && <SubjectHome char={character} coins={player.coins} nickname={nickname} onMath={() => { setSubject("math"); setScreen("trials"); }} />}
+        {screen === "trials" && <Home char={character} level={prog.level} coins={player.coins} nickname={nickname} onBoss={() => setScreen("battle")} onBack={() => setScreen("home")} />}
         {screen === "battle" && (
-          <Battle char={character} player={player} setPlayer={setPlayer} nickname={nickname}
+          <Battle char={character} player={player} setPlayer={setPlayer} subjectKey={subject} prog={prog} nickname={nickname}
             onWin={() => setScreen("victory")} onHome={() => setScreen("trials")} />
         )}
-        {screen === "victory" && <Victory char={character} player={player} nickname={nickname} onHome={() => setScreen("trials")} />}
+        {screen === "victory" && <Victory char={character} level={prog.level} coins={player.coins} nickname={nickname} onHome={() => setScreen("trials")} />}
       </div>
     </div>
   );
@@ -869,15 +896,32 @@ function Tutorial({ char, nickname, onStart }) {
   );
 }
 
+/* ---------- 先生アイコン（画像があれば画像／無ければ絵文字）---------- */
+function TeacherIcon({ src, emoji, size = 50, dim = false }) {
+  const [err, setErr] = useState(false);
+  if (src && !err) {
+    return (
+      <img src={src} alt="" width={size} height={size} onError={() => setErr(true)}
+        style={{ width: size, height: size, objectFit: "contain", display: "block",
+          filter: dim ? "grayscale(.55) brightness(.85)" : "none" }} />
+    );
+  }
+  return <div style={{ fontSize: size * 0.72, lineHeight: 1, opacity: dim ? .85 : 1 }}>{emoji}</div>;
+}
+
 /* ---------- 科目をえらぶ（Phase2 ホーム）---------- */
-function SubjectHome({ char, player, nickname, onMath }) {
+function SubjectHome({ char, coins, nickname, onMath }) {
   const [soon, setSoon] = useState(false);
   const emojis = ["➗", "🔤", "✍️", "🔬", "🌏"];
+  const teacherIds = ["magi", "rumi", "sora", "mils", "kros"];
   const open = [true, false, false, false, false]; // 数学だけ開放（他は準備中）
-  const subs = t("subjects").map((s, i) => ({ ...s, emoji: emojis[i], open: open[i] }));
+  const subs = t("subjects").map((s, i) => ({
+    ...s, emoji: emojis[i], open: open[i],
+    teacherImg: assetUrl(ASSETS.teachers[teacherIds[i]]),
+  }));
   return (
     <div style={{ animation: "rino-pop .4s ease", position: "relative", minHeight: 520 }}>
-      <HUD p={player} name={nickname} />
+      <HUD level={null} coins={coins} name={nickname} />
       <div style={{ textAlign: "center", marginBottom: 6 }}>
         <Hero accent={char?.accent} size={110} src={assetUrl(char?.img)} />
       </div>
@@ -889,7 +933,10 @@ function SubjectHome({ char, player, nickname, onMath }) {
             style={{ ...clay(s.open ? C.bg1 : "#221a3d"), border: "none", padding: "16px 12px", textAlign: "center",
               cursor: "pointer", opacity: s.open ? 1 : .6,
               ...(s.open ? { animation: "rino-glow 2.6s ease-in-out infinite" } : {}) }}>
-            <div style={{ fontSize: 34, marginBottom: 4 }}>{s.open ? s.emoji : "🔒"}</div>
+            <div style={{ position: "relative", display: "inline-block", marginBottom: 4 }}>
+              <TeacherIcon src={s.teacherImg} emoji={s.emoji} size={52} dim={!s.open} />
+              {!s.open && <span style={{ position: "absolute", top: -6, right: -10, fontSize: 16 }}>🔒</span>}
+            </div>
             <div style={{ fontWeight: 900, fontSize: 16, color: s.open ? C.aqua : C.inkDim }}>{s.name}</div>
             <div style={{ fontSize: 11, color: C.inkDim, marginTop: 2 }}>{s.teacher}</div>
           </button>
@@ -906,14 +953,14 @@ function SubjectHome({ char, player, nickname, onMath }) {
 }
 
 /* ---------- ホーム（試練の間）---------- */
-function Home({ char, player, nickname, onBoss, onBack }) {
+function Home({ char, level, coins, nickname, onBoss, onBack }) {
   const [devOpen, setDevOpen] = useState(false);
   // 開放フラグだけコード側に残し、name/sub は辞書（t("rooms")）から取る
   const roomOpen = [true, false, false];
   const rooms = t("rooms").map((r, i) => ({ ...r, open: roomOpen[i] }));
   return (
     <div style={{ animation: "rino-pop .4s ease", position: "relative", minHeight: 520 }}>
-      <HUD p={player} name={nickname} />
+      <HUD level={level} coins={coins} name={nickname} />
       <div style={{ textAlign: "center", marginBottom: 6 }}><Hero accent={char?.accent} size={120} src={assetUrl(char?.img)} /></div>
       <h2 style={{ textAlign: "center", fontSize: 20, fontWeight: 900, marginBottom: 14 }}>{t("chooseTrial")}</h2>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -958,7 +1005,7 @@ function Home({ char, player, nickname, onBoss, onBack }) {
 /* ---------- バトル ---------- */
 const BOSS_HP = 100, PLAYER_HP = 100, HIT_DMG = 25, TAKE_DMG = 20;
 
-function Battle({ char, player, setPlayer, nickname, onWin, onHome }) {
+function Battle({ char, player, setPlayer, subjectKey, prog, nickname, onWin, onHome }) {
   const [bossHP, setBossHP] = useState(BOSS_HP);
   const [hp, setHp] = useState(PLAYER_HP);
   const [problem, setProblem] = useState(null);
@@ -976,7 +1023,7 @@ function Battle({ char, player, setPlayer, nickname, onWin, onHome }) {
   async function nextProblem() {
     setPhase("loading"); setPicked(null); setExplain(""); setMood("idle");
     let p;
-    const lv = player.level;
+    const lv = prog.level;
     const roll = Math.random();
     try {
       if (lv >= 5 && roll < 0.5) p = await genOyou(lv);
@@ -985,7 +1032,7 @@ function Battle({ char, player, setPlayer, nickname, onWin, onHome }) {
     } catch { p = genHyojun(); }
     const ch = p.choices || makeChoices(p.a);
     setProblem(p); setChoices(ch);
-    setMode(pickAnswerMode(player.level, p.a)); setInputVal("");
+    setMode(pickAnswerMode(prog.level, p.a)); setInputVal("");
     setPhase("answer");
   }
   useEffect(() => { nextProblem(); /* eslint-disable-next-line */ }, []);
@@ -1016,9 +1063,12 @@ function Battle({ char, player, setPlayer, nickname, onWin, onHome }) {
       setBossHit(true); setTimeout(() => setBossHit(false), 500);
       const nb = Math.max(0, bossHP - HIT_DMG); setBossHP(nb);
       setPlayer(pl => {
-        const xp = pl.xp + 1, coins = pl.coins + 10;
-        const need = pl.level * 3;
-        return xp >= need ? { level: pl.level + 1, xp: 0, coins } : { ...pl, xp, coins };
+        const cur = (pl.subjects && pl.subjects[subjectKey]) || { level: 1, xp: 0 };
+        const xp = cur.xp + 1;
+        const need = cur.level * 3;
+        const coins = pl.coins + 10;
+        const nextCur = xp >= need ? { level: cur.level + 1, xp: 0 } : { level: cur.level, xp };
+        return { ...pl, coins, subjects: { ...pl.subjects, [subjectKey]: nextCur } };
       });
       if (nb <= 0) { setTimeout(onWin, 900); }
     } else {
@@ -1043,7 +1093,7 @@ function Battle({ char, player, setPlayer, nickname, onWin, onHome }) {
 
   return (
     <div style={{ animation: "rino-pop .35s ease" }}>
-      <HUD p={player} name={nickname} />
+      <HUD level={prog.level} coins={player.coins} name={nickname} />
       <div style={{ ...clay(C.bg1), padding: 14, marginBottom: 12 }}>
         <div style={{ textAlign: "center", fontWeight: 900, color: C.danger, marginBottom: 4 }}>👾 {t("bossName")}</div>
         <DarkNumber hit={bossHit} />
@@ -1165,7 +1215,7 @@ function ExplainPanel({ explain, explaining, onWhy, onEasier, onNext }) {
 }
 
 /* ---------- 勝利 ---------- */
-function Victory({ char, player, nickname, onHome }) {
+function Victory({ char, level, coins, nickname, onHome }) {
   return (
     <div style={{ textAlign: "center", animation: "rino-pop .4s ease" }}>
       <div style={{ position: "relative" }}>
@@ -1175,8 +1225,8 @@ function Victory({ char, player, nickname, onHome }) {
       <p style={{ color: C.inkDim, margin: "6px 0 18px" }}>{t("guardianReturned")}<br />{t("wellDone", nickname)}</p>
       <div style={{ ...clay(C.bg1), padding: 18, marginBottom: 18 }}>
         <div style={{ display: "flex", justifyContent: "space-around", fontWeight: 900 }}>
-          <span><Star size={18} color={C.butter} style={{ verticalAlign: "-3px" }} /> Lv.{player.level}</span>
-          <span><Coins size={18} color={C.gold} style={{ verticalAlign: "-3px" }} /> {player.coins}</span>
+          <span><Star size={18} color={C.butter} style={{ verticalAlign: "-3px" }} /> Lv.{level}</span>
+          <span><Coins size={18} color={C.gold} style={{ verticalAlign: "-3px" }} /> {coins}</span>
           <span><Heart size={18} color={C.danger} style={{ verticalAlign: "-3px" }} /> {t("clear")}</span>
         </div>
       </div>
