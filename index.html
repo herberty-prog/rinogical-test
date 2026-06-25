@@ -542,8 +542,8 @@ const ENGLISH_EXPLAIN_SYSTEM =
 
 /* 科目ごとの設定（ボス名・浮遊トークン・先生・解説）をここ1か所で管理 */
 const SUBJECT_META = {
-  math: { bossName: "ダーク・ナンバー", tokens: ["7", "-3", "5", "-8", "0", "-1", "9", "-4"], teacher: TEACHER, explain: EXPLAIN_SYSTEM },
-  english: { bossName: "ミステイク・スペクター", tokens: ["A", "B", "is", "am", "are", "?", "the", "be"], teacher: ENGLISH_TEACHER, explain: ENGLISH_EXPLAIN_SYSTEM },
+  math: { bossName: "ダーク・ナンバー", tokens: ["7", "-3", "5", "-8", "0", "-1", "9", "-4"], teacher: TEACHER, explain: EXPLAIN_SYSTEM, teacherImg: assetUrl(ASSETS.teachers.magi), emoji: "➗" },
+  english: { bossName: "ミステイク・スペクター", tokens: ["A", "B", "is", "am", "are", "?", "the", "be"], teacher: ENGLISH_TEACHER, explain: ENGLISH_EXPLAIN_SYSTEM, teacherImg: assetUrl(ASSETS.teachers.rumi), emoji: "🔤" },
 };
 
 /* ===========================================================================
@@ -1307,7 +1307,7 @@ function Battle({ char, player, setPlayer, subjectKey, prog, nickname, onWin, on
           )}
 
           {phase === "result" && !sameAns(picked, problem) && (
-            <ExplainPanel explain={explain} explaining={explaining} teacher={meta.teacher}
+            <ExplainPanel explain={explain} explaining={explaining} teacher={meta.teacher} teacherImg={meta.teacherImg} teacherEmoji={meta.emoji}
               onWhy={() => fetchExplain("「なんで？」と聞かれました。なぜその答えになるのか、考え方のステップを順番に、わかりやすく説明して。")}
               onEasier={() => fetchExplain(subjectKey === "english"
                 ? "「もっとかんたんに」と言われました。主語による be動詞の見分け方を、別の身近な言い方で、いちばんやさしく説明して。同じ説明のくり返しは避けて。"
@@ -1325,11 +1325,18 @@ function Battle({ char, player, setPlayer, subjectKey, prog, nickname, onWin, on
 }
 
 /* AI解説パネル */
-function ExplainPanel({ explain, explaining, onWhy, onEasier, onNext, teacher = TEACHER }) {
+function ExplainPanel({ explain, explaining, onWhy, onEasier, onNext, teacher = TEACHER, teacherImg = null, teacherEmoji = null }) {
+  const [imgErr, setImgErr] = useState(false);
+  const avatar = teacherImg && !imgErr
+    ? <img src={teacherImg} alt="" width={72} height={72} onError={() => setImgErr(true)}
+        style={{ width: 72, height: 72, objectFit: "contain", display: "block" }} />
+    : teacherEmoji
+      ? <div style={{ fontSize: 52, lineHeight: 1 }}>{teacherEmoji}</div>
+      : <Magi size={84} />;
   return (
     <div style={{ marginTop: 14 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center", marginBottom: 6 }}>
-        <Magi size={84} />
+        {avatar}
         <p style={{ color: C.peach, fontWeight: 900, textAlign: "left", margin: 0 }}>
           {teacher}：<br />{t("teacherIntro")}
         </p>
