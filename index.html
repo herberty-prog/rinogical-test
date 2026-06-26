@@ -1,38 +1,31 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Rinogical</title>
-
-  <!-- PWA -->
-  <link rel="manifest" href="manifest.json" />
-  <link rel="apple-touch-icon" href="icon-180.png" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="Rinogical" />
-  <meta name="theme-color" content="#160f2e" />
-
-  <style>
-    html, body { margin: 0; background: #160f2e; }
-  </style>
-
-  <!-- importmap -->
-  <script type="importmap">
-  {
-    "imports": {
-      "react": "https://esm.sh/react@18.2.0",
-      "react-dom/client": "https://esm.sh/react-dom@18.2.0/client?external=react",
-      "lucide-react": "https://esm.sh/lucide-react@0.383.0?external=react"
-    }
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Rinogical</title>
+<meta name="theme-color" content="#160f2e" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icon-180.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Rinogical" />
+<style>html,body{margin:0;background:#160f2e}#root{min-height:100vh}</style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client?external=react",
+    "lucide-react": "https://esm.sh/lucide-react@0.383.0?external=react",
+    "lottie-web": "https://esm.sh/lottie-web@5.12.2"
   }
-  </script>
-
-  <!-- Babel standalone -->
-  <script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
+}
+</script>
+<script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
 </head>
 <body>
-  <div id="root"></div>
-  <script type="text/babel" data-type="module" data-presets="react">
+<div id="root"></div>
+<script type="text/babel" data-type="module" data-presets="react">
 import React, { useState, useEffect, useRef } from "react";
 import { Coins, Sparkles, Star, Heart, Lightbulb, ArrowRight, RefreshCw, Lock } from "lucide-react";
 
@@ -207,9 +200,48 @@ const ASSETS = {
   },
 };
 
+/* ================= Lottie素材パス（あれば使う／無ければ画像→SVGへ自動で戻る）=========
+   ・置き場所：assets/lottie/ 配下に .json（または .lottie）を置く。
+   ・assetUrl() で参照する（例：assetUrl(LOTTIE.chars.myao) → "assets/lottie/myao.json"）。
+   ・ファイルが無い／読めない場合は onFail が呼ばれ、Heroが従来の画像/SVGに自動で戻る。 */
+const LOTTIE = {
+  chars: {
+    // 表情ごとにファイルを分ける。無いものは idle にフォールバック→それも無ければ画像/SVG。
+    myao: { idle: "lottie/myao_idle.json", happy: "lottie/myao_happy.json", sad: "lottie/myao_sad.json" },
+    ruu:  { idle: "lottie/ruu_idle.json",  happy: "lottie/ruu_happy.json",  sad: "lottie/ruu_sad.json" },
+  },
+};
+
+/* ================= Lottie再生部品（lottie-web を遅延読み込み）=================
+   ・src があれば再生。読み込み失敗・ライブラリ未読込なら onFail を呼んで何も描かない
+     （呼び出し側＝Heroが従来表示にフォールバックする）。
+   ・lottie-web は importmap（esm.sh）で追加する必要がある（index.html側）。 */
+function LottieView({ src, size = 200, loop = true, onFail }) {
+  const box = useRef(null);
+  useEffect(() => {
+    if (!src) { if (onFail) onFail(); return; }
+    var anim = null; var alive = true;
+    import("lottie-web").then(function (mod) {
+      if (!alive || !box.current) return;
+      var lottie = mod.default || mod;
+      anim = lottie.loadAnimation({
+        container: box.current,
+        renderer: "svg",
+        loop: loop,
+        autoplay: true,
+        path: src,
+      });
+      anim.addEventListener("data_failed", function () { if (onFail) onFail(); });
+    }).catch(function () { if (onFail) onFail(); });
+    return function () { alive = false; if (anim) anim.destroy(); };
+  }, [src, loop]);
+  return <div ref={box} style={{ width: size, height: size, margin: "0 auto" }} />;
+}
+
 /* ================= キャラクター（猫耳・セーラー）================= */
-function Hero({ mood = "idle", accent = C.lav, size = 200, src = null }) {
+function Hero({ mood = "idle", accent = C.lav, size = 200, src = null, lottieSet = null }) {
   const [imgErr, setImgErr] = useState(false);
+  const [lottieErr, setLottieErr] = useState(false);
   const anim =
     mood === "happy" ? "rino-happy .9s ease" :
     mood === "sad" ? "rino-sad .7s ease" :
@@ -218,7 +250,21 @@ function Hero({ mood = "idle", accent = C.lav, size = 200, src = null }) {
     mood === "happy" ? "M78 138 Q100 168 122 138" :
     mood === "sad" ? "M80 150 Q100 134 120 150" :
     "M84 142 Q100 156 116 142";
-  // 画像があればそれを表示（読み込み失敗時は下のSVGに自動フォールバック）
+  // ① Lottieがあればそれを再生（mood別→idle→画像→SVG の順にフォールバック）
+  const lottiePick = lottieSet ? (lottieSet[mood] || lottieSet.idle || null) : null;
+  if (lottiePick && !lottieErr) {
+    return (
+      <div style={{ width: size, height: size, position: "relative" }}>
+        {mood === "happy" && [0, 1, 2, 3].map(i => (
+          <Sparkles key={i} size={20 + i * 4} color={C.gold}
+            style={{ position: "absolute", top: 10 + (i % 2) * 120, left: i < 2 ? -6 : size - 26,
+              animation: `rino-spark .9s ease ${i * 0.08}s` }} />
+        ))}
+        <LottieView src={lottiePick} size={size} loop={mood === "idle"} onFail={() => setLottieErr(true)} />
+      </div>
+    );
+  }
+  // ② 画像があればそれを表示（読み込み失敗時は下のSVGに自動フォールバック）
   if (src && !imgErr) {
     return (
       <div style={{ width: size, height: size, position: "relative" }}>
@@ -1209,7 +1255,12 @@ function Battle({ char, player, setPlayer, subjectKey, prog, nickname, onWin, on
       </div>
 
       <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 10 }}>
-        <Hero accent={char?.accent} mood={mood} size={92} src={assetUrl(char?.img)} />
+        <Hero accent={char?.accent} mood={mood} size={92} src={assetUrl(char?.img)}
+          lottieSet={char && char.id && LOTTIE.chars[char.id] ? {
+            idle: assetUrl(LOTTIE.chars[char.id].idle),
+            happy: assetUrl(LOTTIE.chars[char.id].happy),
+            sad: assetUrl(LOTTIE.chars[char.id].sad),
+          } : null} />
         <div style={{ flex: 1 }}><HPBar label={t("hpOf", nickname)} value={hp} max={PLAYER_HP} color={C.mint} /></div>
       </div>
 
@@ -1362,10 +1413,15 @@ function ExplainPanel({ explain, explaining, onWhy, onEasier, onNext, teacher = 
 
 /* ---------- 勝利 ---------- */
 function Victory({ char, level, coins, nickname, onHome }) {
+  // 勝利画面のキャラだけ Lottie を試す（無ければ従来の画像/SVGに自動で戻る）
+  const heroLottie = char && char.id ? LOTTIE.chars[char.id] : null;
+  const heroLottieSet = heroLottie ? {
+    idle: assetUrl(heroLottie.idle), happy: assetUrl(heroLottie.happy), sad: assetUrl(heroLottie.sad),
+  } : null;
   return (
     <div style={{ textAlign: "center", animation: "rino-pop .4s ease" }}>
       <div style={{ position: "relative" }}>
-        <Hero accent={char?.accent} mood="happy" size={170} src={assetUrl(char?.img)} />
+        <Hero accent={char?.accent} mood="happy" size={170} src={assetUrl(char?.img)} lottieSet={heroLottieSet} />
       </div>
       <h2 style={{ fontSize: 26, fontWeight: 900, color: C.gold, textShadow: `0 0 20px ${C.gold}` }}>{t("sealBroken")}</h2>
       <p style={{ color: C.inkDim, margin: "6px 0 18px" }}>{t("guardianReturned")}<br />{t("wellDone", nickname)}</p>
@@ -1382,9 +1438,10 @@ function Victory({ char, level, coins, nickname, onHome }) {
 }
 
 
+/* ===== GitHub Pages 用レンダリング ===== */
 import { createRoot } from "react-dom/client";
-createRoot(document.getElementById("root")).render(React.createElement(Rinogical));
+createRoot(document.getElementById("root")).render(<Rinogical />);
 
-  </script>
+</script>
 </body>
 </html>
