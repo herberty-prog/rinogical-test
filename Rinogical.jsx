@@ -149,8 +149,71 @@ function Keyframes() {
   );
 }
 
+/* ================= 素材パス（画像をここに置けば自動で差し替わる）=================
+   ・置き場所：リポジトリ直下の assets/ フォルダ（index.html と同じ階層に作る）。
+   ・ファイルが無い／読めない場合は、今までのSVGが自動で表示される（真っ白にならない）。
+   ・1枚ずつ足してOK。足したパスのキャラ・ボスだけ絵に入れ替わる。
+   ・背景・Lottie は次のステップで実装予定（ここに足していく）。 */
+const ASSET_BASE = "assets/";
+const assetUrl = (rel) => (rel ? ASSET_BASE + rel : null);
+const ASSETS = {
+  bosses: {
+    darknumber: "bosses/darknumber.png", // ダーク・ナンバー（正負の数のボス）
+  },
+  backgrounds: {
+    adventure: "bg/adventure.png", // 全画面の背景（無ければ今までのグラデーション）
+  },
+  teachers: {
+    magi: "teachers/magi.png", // マギ（数学）
+    rumi: "teachers/rumi.png", // ルミ（英語）
+    sora: "teachers/sora.png", // ソラ（国語）
+    mils: "teachers/mils.png", // ミルス（理科）
+    kros: "teachers/kros.png", // クロス（社会）
+  },
+};
+
+/* ================= Lottie素材パス（あれば使う／無ければ画像→SVGへ自動で戻る）=========
+   ・置き場所：assets/lottie/ 配下に .json（または .lottie）を置く。
+   ・assetUrl() で参照する（例：assetUrl(LOTTIE.chars.myao) → "assets/lottie/myao.json"）。
+   ・ファイルが無い／読めない場合は onFail が呼ばれ、Heroが従来の画像/SVGに自動で戻る。 */
+const LOTTIE = {
+  chars: {
+    // 表情ごとにファイルを分ける。無いものは idle にフォールバック→それも無ければ画像/SVG。
+    myao: { idle: "lottie/myao_idle.json", happy: "lottie/myao_happy.json", sad: "lottie/myao_sad.json" },
+    ruu:  { idle: "lottie/ruu_idle.json",  happy: "lottie/ruu_happy.json",  sad: "lottie/ruu_sad.json" },
+  },
+};
+
+/* ================= Lottie再生部品（lottie-web を遅延読み込み）=================
+   ・src があれば再生。読み込み失敗・ライブラリ未読込なら onFail を呼んで何も描かない
+     （呼び出し側＝Heroが従来表示にフォールバックする）。
+   ・lottie-web は importmap（esm.sh）で追加する必要がある（index.html側）。 */
+function LottieView({ src, size = 200, loop = true, onFail }) {
+  const box = useRef(null);
+  useEffect(() => {
+    if (!src) { if (onFail) onFail(); return; }
+    var anim = null; var alive = true;
+    import("lottie-web").then(function (mod) {
+      if (!alive || !box.current) return;
+      var lottie = mod.default || mod;
+      anim = lottie.loadAnimation({
+        container: box.current,
+        renderer: "svg",
+        loop: loop,
+        autoplay: true,
+        path: src,
+      });
+      anim.addEventListener("data_failed", function () { if (onFail) onFail(); });
+    }).catch(function () { if (onFail) onFail(); });
+    return function () { alive = false; if (anim) anim.destroy(); };
+  }, [src, loop]);
+  return <div ref={box} style={{ width: size, height: size, margin: "0 auto" }} />;
+}
+
 /* ================= キャラクター（猫耳・セーラー）================= */
-function Hero({ mood = "idle", accent = C.lav, size = 200 }) {
+function Hero({ mood = "idle", accent = C.lav, size = 200, src = null, lottieSet = null }) {
+  const [imgErr, setImgErr] = useState(false);
+  const [lottieErr, setLottieErr] = useState(false);
   const anim =
     mood === "happy" ? "rino-happy .9s ease" :
     mood === "sad" ? "rino-sad .7s ease" :
@@ -159,6 +222,34 @@ function Hero({ mood = "idle", accent = C.lav, size = 200 }) {
     mood === "happy" ? "M78 138 Q100 168 122 138" :
     mood === "sad" ? "M80 150 Q100 134 120 150" :
     "M84 142 Q100 156 116 142";
+  // ① Lottieがあればそれを再生（mood別→idle→画像→SVG の順にフォールバック）
+  const lottiePick = lottieSet ? (lottieSet[mood] || lottieSet.idle || null) : null;
+  if (lottiePick && !lottieErr) {
+    return (
+      <div style={{ width: size, height: size, position: "relative" }}>
+        {mood === "happy" && [0, 1, 2, 3].map(i => (
+          <Sparkles key={i} size={20 + i * 4} color={C.gold}
+            style={{ position: "absolute", top: 10 + (i % 2) * 120, left: i < 2 ? -6 : size - 26,
+              animation: `rino-spark .9s ease ${i * 0.08}s` }} />
+        ))}
+        <LottieView src={lottiePick} size={size} loop={mood === "idle"} onFail={() => setLottieErr(true)} />
+      </div>
+    );
+  }
+  // ② 画像があればそれを表示（読み込み失敗時は下のSVGに自動フォールバック）
+  if (src && !imgErr) {
+    return (
+      <div style={{ width: size, height: size, position: "relative" }}>
+        {mood === "happy" && [0, 1, 2, 3].map(i => (
+          <Sparkles key={i} size={20 + i * 4} color={C.gold}
+            style={{ position: "absolute", top: 10 + (i % 2) * 120, left: i < 2 ? -6 : size - 26,
+              animation: `rino-spark .9s ease ${i * 0.08}s` }} />
+        ))}
+        <img src={src} alt="" width={size} height={size} onError={() => setImgErr(true)}
+          style={{ width: size, height: size, objectFit: "contain", display: "block", animation: anim }} />
+      </div>
+    );
+  }
   return (
     <div style={{ width: size, height: size, position: "relative" }}>
       {mood === "happy" && [0, 1, 2, 3].map(i => (
@@ -202,10 +293,12 @@ function Hero({ mood = "idle", accent = C.lav, size = 200 }) {
 }
 
 /* ================= ボス：ダーク・ナンバー ================= */
-function DarkNumber({ hit }) {
-  const nums = ["7", "-3", "5", "-8", "0", "-1", "9", "-4"];
+function DarkNumber({ hit, src = assetUrl(ASSETS.bosses.darknumber), tokens }) {
+  const [imgErr, setImgErr] = useState(false);
+  const useImg = src && !imgErr;
+  const nums = tokens && tokens.length ? tokens : ["7", "-3", "5", "-8", "0", "-1", "9", "-4"];
   return (
-    <div style={{ width: 240, height: 200, position: "relative" }}>
+    <div style={{ width: 240, height: 200, position: "relative", margin: "0 auto" }}>
       {nums.map((n, i) => (
         <span key={i} style={{
           position: "absolute", left: 24 + (i * 27) % 200, top: 120,
@@ -215,6 +308,10 @@ function DarkNumber({ hit }) {
         }}>{n}</span>
       ))}
       <div style={{ animation: hit ? "rino-hit .45s ease" : "rino-slime 2.6s ease-in-out infinite" }}>
+        {useImg ? (
+          <img src={src} alt="" width={200} height={170} onError={() => setImgErr(true)}
+            style={{ objectFit: "contain", display: "block", margin: "0 auto" }} />
+        ) : (
         <svg viewBox="0 0 240 200" width={240} height={200} style={{ overflow: "visible" }}>
           <defs>
             <radialGradient id="sl" cx="42%" cy="34%"><stop offset="0%" stopColor="#3a2a63" /><stop offset="100%" stopColor={C.slime} /></radialGradient>
@@ -226,6 +323,7 @@ function DarkNumber({ hit }) {
           <circle cx="148" cy="128" r="13" fill={C.gold} /><circle cx="150" cy="130" r="6" fill="#1a1430" />
           <path d="M96 158 Q120 146 144 158" fill="none" stroke="#9b7fd6" strokeWidth="4" strokeLinecap="round" />
         </svg>
+        )}
       </div>
     </div>
   );
@@ -302,11 +400,50 @@ function genKihon(level) {
 }
 
 const HYOJUN = [
+  // --- 既存の10問 ---
   { q: "(-2) + (-5) + 3", a: -4 }, { q: "8 - 12 + (-4)", a: -8 },
   { q: "(-3) × 4", a: -12 }, { q: "(-6) × (-5)", a: 30 },
   { q: "(-18) ÷ 3", a: -6 }, { q: "20 ÷ (-4)", a: -5 },
   { q: "(-2)³", a: -8 }, { q: "-3²", a: -9 },
   { q: "|-7| + |-3|", a: 10 }, { q: "(-4) - (-9)", a: 5 },
+
+  // --- 足し引き（9問） ---
+  { q: "(-7) + (-8)", a: -15 }, { q: "(-15) + 6", a: -9 },
+  { q: "12 + (-20)", a: -8 }, { q: "(-9) - (-4)", a: -5 },
+  { q: "3 - 11 - (-5)", a: -3 }, { q: "(-6) + (-7) + 10", a: -3 },
+  { q: "(-13) - 8", a: -21 }, { q: "5 - (-9) - 7", a: 7 },
+  { q: "(-4) + 9 + (-12)", a: -7 },
+
+  // --- かけ割り（9問） ---
+  { q: "(-7) × 6", a: -42 }, { q: "(-8) × (-9)", a: 72 },
+  { q: "(-48) ÷ 6", a: -8 }, { q: "(-54) ÷ (-9)", a: 6 },
+  { q: "(-5) × 4 × (-3)", a: 60 }, { q: "36 ÷ (-12)", a: -3 },
+  { q: "(-2) × (-3) × (-5)", a: -30 }, { q: "(-72) ÷ 8", a: -9 },
+  { q: "(-6) × 7", a: -42 },
+
+  // --- 累乗（8問） ---
+  { q: "(-3)²", a: 9 }, { q: "(-4)²", a: 16 },
+  { q: "-4²", a: -16 }, { q: "(-2)⁴", a: 16 },
+  { q: "-2³", a: -8 }, { q: "(-5)²", a: 25 },
+  { q: "(-1)⁵", a: -1 }, { q: "-3³", a: -27 },
+
+  // --- 絶対値（8問） ---
+  { q: "|-12|", a: 12 }, { q: "|-8| - |5|", a: 3 },
+  { q: "|3 - 10|", a: 7 }, { q: "|-6| × (-2)", a: -12 },
+  { q: "|-15| ÷ (-3)", a: -5 }, { q: "-|-9|", a: -9 },
+  { q: "|-4| + |-11|", a: 15 }, { q: "|2 - 9| - |-3|", a: 4 },
+
+  // --- かっこ外し（8問） ---
+  { q: "-(-6) + (-4)", a: 2 }, { q: "8 - (3 - 10)", a: 15 },
+  { q: "(-5) - (2 - 8)", a: 1 }, { q: "-(7 - 12) - 3", a: 2 },
+  { q: "(-4) + (-(-9))", a: 5 }, { q: "10 - (-(-6))", a: 4 },
+  { q: "-(2 + (-9))", a: 7 }, { q: "(1 - 7) - (-(-2))", a: -8 },
+
+  // --- 四則混合（8問） ---
+  { q: "(-2) × 3 + 5", a: -1 }, { q: "12 ÷ (-4) - 6", a: -9 },
+  { q: "(-3)² - 4 × 5", a: -11 }, { q: "8 + (-2) × (-4)", a: 16 },
+  { q: "(-10) ÷ 2 + (-3) × 2", a: -11 }, { q: "(-6) + 4² ÷ (-8)", a: -8 },
+  { q: "5 × (-2) - (-3) × 4", a: 2 }, { q: "(-1)³ × 7 + 9", a: 2 },
 ];
 const genHyojun = () => ({ ...HYOJUN[rint(0, HYOJUN.length - 1)], kind: "標準" });
 
@@ -393,6 +530,79 @@ function localExplain(p) {
   ].join("\n");
 }
 
+/* ================= 答え合わせ（数値／文字 両対応）================= */
+function normText(s) {
+  return String(s == null ? "" : s).trim().toLowerCase()
+    .replace(/\s+/g, " ").replace(/[.．。!?！？]+$/,"");
+}
+function sameAns(val, p) {
+  return p && p.type === "number" ? val === p.a : normText(val) === normText(p.a);
+}
+
+/* ================= 英語（第1単元：be動詞）=================
+   ・問題はすべてアプリ用のオリジナル英文（教科書本文は使わない）。
+   ・どの主語でも文法的に正しい述語だけを使い、単複の不一致を避ける。 */
+const BE_DATA = [
+  { s: "I", be: "am" }, { s: "You", be: "are" }, { s: "We", be: "are" },
+  { s: "They", be: "are" }, { s: "He", be: "is" }, { s: "She", be: "is" },
+  { s: "It", be: "is" }, { s: "Tom", be: "is" }, { s: "Yuki", be: "is" },
+  { s: "My friends", be: "are" },
+];
+const BE_PRED = ["happy", "kind", "busy", "tall", "hungry", "fine", "sleepy", "from Tokyo", "at school", "good at music"];
+
+function engPick() {
+  const d = BE_DATA[rint(0, BE_DATA.length - 1)];
+  const pred = BE_PRED[rint(0, BE_PRED.length - 1)];
+  return { s: d.s, be: d.be, pred };
+}
+
+/* レベルで出題形式を変える：Lv1-2=4択 / Lv3-4=4択+並べ替え / Lv5+=4択+並べ替え+入力 */
+function genEnglishProblem(level) {
+  const roll = Math.random();
+  let form;
+  if (level >= 5) form = roll < 0.5 ? "choice" : roll < 0.8 ? "arrange" : "input";
+  else if (level >= 3) form = roll < 0.7 ? "choice" : "arrange";
+  else form = "choice";
+
+  const { s, be, pred } = engPick();
+  const CH = ["am", "is", "are", "be"];
+
+  if (form === "arrange") {
+    const words = [s, be, ...pred.split(" ")];
+    return { type: "text", ui: "arrange", kind: "ならべかえ", q: "", a: words.join(" "), tiles: shuffle(words.slice()) };
+  }
+  if (form === "input") {
+    return { type: "text", ui: "input", kind: "入力", q: `${s} ___ ${pred}.`, a: be, choices: CH };
+  }
+  return { type: "text", ui: "choice", kind: "超基本", q: `${s} ___ ${pred}.`, a: be, choices: CH };
+}
+
+/* 英語のローカル解説フォールバック（電波が悪いとき用） */
+function localExplainEn(p) {
+  return [
+    "ナイスチャレンジ！👏 いっしょに見直そう。",
+    "・主語（しゅご）が「I」なら am。",
+    "・「You」や 2人以上（we / they / 複数）なら are。",
+    "・「He / She / It」など 1人・1つなら is。",
+    "もう一回いける！🌟",
+  ].join("\n");
+}
+
+/* 英語の先生（ルミ先生）の解説スタイル */
+const ENGLISH_TEACHER = "ルミ先生";
+const ENGLISH_EXPLAIN_SYSTEM =
+  `あなたは中学1年生のための、やさしい英語の先生「${ENGLISH_TEACHER}」です。` +
+  "明るく親しみやすい言葉の魔法使いで、アルファベットや羽ペンのモチーフが好きです。" +
+  "解説スタイル：①短文で ②箇条書きは行頭に「・」だけ ③むずかしい漢字にはふりがな ④まず良いところを褒める ⑤絶対に責めない・否定しない。" +
+  "重要：マークダウン記号（** や * や # や ```）は絶対に使わない。" +
+  "単元は be動詞（am / is / are）。主語による使い分け（I→am、You・複数→are、3人称単数→is）を、答えそのものより『見分け方』を中心に伝える。絵文字は1〜2個までOK。毎回みじかく。";
+
+/* 科目ごとの設定（ボス名・浮遊トークン・先生・解説）をここ1か所で管理 */
+const SUBJECT_META = {
+  math: { bossName: "ダーク・ナンバー", tokens: ["7", "-3", "5", "-8", "0", "-1", "9", "-4"], teacher: TEACHER, explain: EXPLAIN_SYSTEM, teacherImg: assetUrl(ASSETS.teachers.magi), emoji: "➗" },
+  english: { bossName: "ミステイク・スペクター", tokens: ["A", "B", "is", "am", "are", "?", "the", "be"], teacher: ENGLISH_TEACHER, explain: ENGLISH_EXPLAIN_SYSTEM, teacherImg: assetUrl(ASSETS.teachers.rumi), emoji: "🔤" },
+};
+
 /* ===========================================================================
    多言語の土台（i18n）
    - 画面に出る文章は、すべてこの STR 辞書にまとめる。
@@ -429,6 +639,18 @@ const STR = {
     tutMechanism: "問題を解く＝魔法の力で呪いを解く。さあ、最初の間へ。",
     startAdventure: "ぼうけんをはじめる ✦",
     chooseTrial: "試練の間をえらぶ",
+    chooseSubject: "きょうは どれに ちょうせん？",
+    subjects: [
+      { name: "数学", teacher: "マギ先生" },
+      { name: "英語", teacher: "ルミ先生" },
+      { name: "国語", teacher: "ソラ先生" },
+      { name: "理科", teacher: "ミルス先生" },
+      { name: "社会", teacher: "クロス先生" },
+    ],
+    comingSoon: "準備中だよ！ もうすこし まってね 🌱",
+    backToSubjects: "← 科目にもどる",
+    arrangeHint: "ことばを ならべて 文を つくろう",
+    clearBtn: "けす",
     rooms: [
       { name: "暗黒の数字の間", sub: "正負の数 / ボス：ダーク・ナンバー" },
       { name: "文字式の回廊", sub: "Phase 2 で解放" },
@@ -583,11 +805,11 @@ function DevPanel({ onClose }) {
 }
 
 /* ================= ヘッダーHUD ================= */
-function HUD({ p, name }) {
+function HUD({ level, coins, name }) {
   return (
     <div style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "center", flexWrap: "wrap", marginBottom: 14 }}>
-      <Pill icon={<Star size={16} color={C.bg0} />} text={`Lv.${p.level}`} bg={C.butter} />
-      <Pill icon={<Coins size={16} color={C.bg0} />} text={`${p.coins}`} bg={C.gold} />
+      {level != null && <Pill icon={<Star size={16} color={C.bg0} />} text={`Lv.${level}`} bg={C.butter} />}
+      <Pill icon={<Coins size={16} color={C.bg0} />} text={`${coins}`} bg={C.gold} />
       <span style={{ color: C.inkDim, fontWeight: 700, fontSize: 14 }}>{name}</span>
     </div>
   );
@@ -618,9 +840,23 @@ export default function Rinogical() {
   const [tip] = useState(() => { const a = t("tips"); return a[rint(0, a.length - 1)]; });
   const [character, setCharacter] = useState(null);
   const [nickname, setNickname] = useState("");
-  const [player, setPlayer] = useState({ level: 1, xp: 0, coins: 0 });
+  // coins は全科目共通。level/xp は科目ごと（数学・英語…）に分けて持つ
+  const [player, setPlayer] = useState({ coins: 0, subjects: { math: { level: 1, xp: 0 }, english: { level: 1, xp: 0 } } });
+  const [subject, setSubject] = useState("math"); // いまプレイ中の科目
+  const [battleReturn, setBattleReturn] = useState("trials"); // バトル後の戻り先
+  const prog = (player.subjects && player.subjects[subject]) || { level: 1, xp: 0 };
   const deviceIdRef = useRef(null);
   const persistReady = useRef(false); // 初回読込が終わるまで保存しない（既存データの上書き防止）
+
+  // 背景画像：読み込めたときだけ切り替える（無ければ今までのグラデーションのまま）
+  const [bgUrl, setBgUrl] = useState(null);
+  useEffect(() => {
+    const url = assetUrl(ASSETS.backgrounds && ASSETS.backgrounds.adventure);
+    if (!url) return;
+    const im = new Image();
+    im.onload = () => setBgUrl(url);
+    im.src = url;
+  }, []);
 
   /* 起動時：Firebase初期化 → デバイスID取得 → データ読込（無ければ初期設定へ） */
   useEffect(() => {
@@ -638,7 +874,20 @@ export default function Rinogical() {
           || { id: data.characterId || "myao", accent: data.characterAccent || C.lav };
         setNickname(data.nickname);
         setCharacter(ch);
-        setPlayer({ level: data.level ?? 1, xp: data.xp ?? 0, coins: data.coins ?? 0 });
+        // 旧データ（level/xp が直接入っている）→ subjects.math へ自動で引っ越し
+        let subjects;
+        if (data.subjects && typeof data.subjects === "object") {
+          subjects = {
+            math: data.subjects.math || { level: 1, xp: 0 },
+            english: data.subjects.english || { level: 1, xp: 0 },
+          };
+        } else {
+          subjects = {
+            math: { level: data.level ?? 1, xp: data.xp ?? 0 },
+            english: { level: 1, xp: 0 },
+          };
+        }
+        setPlayer({ coins: data.coins ?? 0, subjects });
         setScreen("home"); // 続きから
       } else {
         setScreen("character"); // 新規：初期設定へ
@@ -657,15 +906,24 @@ export default function Rinogical() {
       nickname,
       characterId: ch.id || null,
       characterAccent: ch.accent || null,
-      level: player.level, xp: player.xp, coins: player.coins,
+      coins: player.coins,
+      subjects: player.subjects,
+      // 互換用（古い形式しか見ない処理があっても困らないように、数学の値を残す）
+      level: (player.subjects.math || {}).level ?? 1,
+      xp: (player.subjects.math || {}).xp ?? 0,
     });
   }, [player, nickname, character]);
 
   const font = { fontFamily: "'Hiragino Maru Gothic ProN','Yu Gothic UI','M PLUS Rounded 1c',system-ui,sans-serif" };
+  const baseGrad = `radial-gradient(1200px 500px at 50% -10%, ${C.bg2}, ${C.bg0} 70%)`;
+  // 背景画像が読めた時だけ：上に薄暗いベールを重ねて文字を読みやすくする
+  const bgStyle = bgUrl
+    ? `linear-gradient(rgba(11,8,26,.30), rgba(11,8,26,.52)), url("${bgUrl}") center/cover no-repeat, ${baseGrad}`
+    : baseGrad;
 
   return (
     <div style={{ ...font, minHeight: 620, color: C.ink, position: "relative", overflow: "hidden",
-      background: `radial-gradient(1200px 500px at 50% -10%, ${C.bg2}, ${C.bg0} 70%)`, padding: "26px 18px", borderRadius: 24 }}>
+      background: bgStyle, padding: "26px 18px", borderRadius: 24 }}>
       <Keyframes />
       {/* 背景のルーン */}
       {["✦", "✧", "⚝", "❉", "✺", "✦"].map((r, i) => (
@@ -677,17 +935,20 @@ export default function Rinogical() {
         {screen === "loading" && <Loading tip={tip} />}
         {screen === "character" && <CharacterSelect onPick={(c) => { setCharacter(c); setScreen("name"); }} />}
         {screen === "name" && (
-          <NameInput accent={character?.accent}
+          <NameInput accent={character?.accent} imgSrc={assetUrl(character?.img)}
             nickname={nickname} setNickname={setNickname}
             onNext={() => setScreen("tutorial")} />
         )}
         {screen === "tutorial" && <Tutorial char={character} nickname={nickname} onStart={() => setScreen("home")} />}
-        {screen === "home" && <Home char={character} player={player} nickname={nickname} onBoss={() => setScreen("battle")} />}
+        {screen === "home" && <SubjectHome char={character} coins={player.coins} nickname={nickname}
+          onMath={() => { setSubject("math"); setScreen("trials"); }}
+          onEnglish={() => { setSubject("english"); setBattleReturn("home"); setScreen("battle"); }} />}
+        {screen === "trials" && <Home char={character} level={prog.level} coins={player.coins} nickname={nickname} onBoss={() => { setBattleReturn("trials"); setScreen("battle"); }} onBack={() => setScreen("home")} />}
         {screen === "battle" && (
-          <Battle char={character} player={player} setPlayer={setPlayer} nickname={nickname}
-            onWin={() => setScreen("victory")} onHome={() => setScreen("home")} />
+          <Battle char={character} player={player} setPlayer={setPlayer} subjectKey={subject} prog={prog} nickname={nickname}
+            onWin={() => setScreen("victory")} onHome={() => setScreen(battleReturn)} />
         )}
-        {screen === "victory" && <Victory char={character} player={player} nickname={nickname} onHome={() => setScreen("home")} />}
+        {screen === "victory" && <Victory char={character} level={prog.level} coins={player.coins} nickname={nickname} onHome={() => setScreen(battleReturn)} />}
       </div>
     </div>
   );
@@ -710,8 +971,8 @@ function Loading({ tip }) {
 
 /* ---------- キャラ選択 ---------- */
 const CHARACTERS = [
-  { id: "myao", name: "ミャオ", accent: C.lav, desc: "ねこ耳の見習い魔導士" },
-  { id: "ruu", name: "ルゥ", accent: C.mint, desc: "しっぽが自慢の魔法使い" },
+  { id: "myao", name: "ミャオ", accent: C.lav, desc: "ねこ耳の見習い魔導士", img: "chars/myao.png" },
+  { id: "ruu", name: "ルゥ", accent: C.mint, desc: "しっぽが自慢の魔法使い", img: "chars/ruu.png" },
 ];
 
 function CharacterSelect({ onPick }) {
@@ -724,7 +985,7 @@ function CharacterSelect({ onPick }) {
         {chars.map(c => (
           <button key={c.id} className="rino-btn" onClick={() => onPick(c)}
             style={{ ...clay(C.bg1), border: "none", padding: 14, cursor: "pointer", width: 180 }}>
-            <Hero accent={c.accent} size={150} />
+            <Hero accent={c.accent} size={150} src={assetUrl(c.img)} />
             <div style={{ fontWeight: 900, fontSize: 18, color: c.accent }}>{c.name}</div>
             <div style={{ fontSize: 12, color: C.inkDim, marginTop: 2 }}>{t("charDesc")[c.id]}</div>
           </button>
@@ -735,12 +996,12 @@ function CharacterSelect({ onPick }) {
 }
 
 /* ---------- 名前入力 ---------- */
-function NameInput({ accent, nickname, setNickname, onNext }) {
+function NameInput({ accent, imgSrc, nickname, setNickname, onNext }) {
   const field = { ...clay(C.bg1, false), border: "none", outline: "none", color: C.ink, fontSize: 16,
     padding: "13px 16px", width: "100%", fontWeight: 700, marginTop: 6 };
   return (
     <div style={{ textAlign: "center", animation: "rino-pop .4s ease" }}>
-      <Hero accent={accent} size={130} />
+      <Hero accent={accent} size={130} src={imgSrc} />
       <h2 style={{ fontSize: 22, fontWeight: 900, margin: "8px 0 6px" }}>{t("nameTitle")}</h2>
       <p style={{ color: C.inkDim, fontSize: 13, marginBottom: 18 }}>{t("nameSub")}</p>
       <div style={{ textAlign: "left", marginBottom: 22 }}>
@@ -758,7 +1019,7 @@ function NameInput({ accent, nickname, setNickname, onNext }) {
 function Tutorial({ char, nickname, onStart }) {
   return (
     <div style={{ textAlign: "center", animation: "rino-pop .4s ease" }}>
-      <Hero accent={char?.accent} mood="idle" size={140} />
+      <Hero accent={char?.accent} mood="idle" size={140} src={assetUrl(char?.img)} />
       <div style={{ ...clay(C.bg1), padding: 20, textAlign: "left", margin: "10px 0 18px", lineHeight: 1.8, fontSize: 15 }}>
         <p>{t("tutHello")}<b style={{ color: char?.accent }}>{nickname}</b>{t("tutHelloEnd")}</p>
         <p style={{ marginTop: 8 }}>{t("tutCurse")}</p>
@@ -770,16 +1031,73 @@ function Tutorial({ char, nickname, onStart }) {
   );
 }
 
+/* ---------- 先生アイコン（画像があれば画像／無ければ絵文字）---------- */
+function TeacherIcon({ src, emoji, size = 50, dim = false }) {
+  const [err, setErr] = useState(false);
+  if (src && !err) {
+    return (
+      <img src={src} alt="" width={size} height={size} onError={() => setErr(true)}
+        style={{ width: size, height: size, objectFit: "contain", display: "block",
+          filter: dim ? "grayscale(.55) brightness(.85)" : "none" }} />
+    );
+  }
+  return <div style={{ fontSize: size * 0.72, lineHeight: 1, opacity: dim ? .85 : 1 }}>{emoji}</div>;
+}
+
+/* ---------- 科目をえらぶ（Phase2 ホーム）---------- */
+function SubjectHome({ char, coins, nickname, onMath, onEnglish }) {
+  const [soon, setSoon] = useState(false);
+  const emojis = ["➗", "🔤", "✍️", "🔬", "🌏"];
+  const teacherIds = ["magi", "rumi", "sora", "mils", "kros"];
+  const open = [true, true, false, false, false]; // 数学・英語を開放（他は準備中）
+  const handlers = [onMath, onEnglish];
+  const subs = t("subjects").map((s, i) => ({
+    ...s, emoji: emojis[i], open: open[i],
+    teacherImg: assetUrl(ASSETS.teachers[teacherIds[i]]),
+  }));
+  return (
+    <div style={{ animation: "rino-pop .4s ease", position: "relative", minHeight: 520 }}>
+      <HUD level={null} coins={coins} name={nickname} />
+      <div style={{ textAlign: "center", marginBottom: 6 }}>
+        <Hero accent={char?.accent} size={110} src={assetUrl(char?.img)} />
+      </div>
+      <h2 style={{ textAlign: "center", fontSize: 20, fontWeight: 900, marginBottom: 14 }}>{t("chooseSubject")}</h2>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        {subs.map((s, i) => (
+          <button key={i} className="rino-btn"
+            onClick={s.open ? (handlers[i] || onMath) : () => setSoon(true)}
+            style={{ ...clay(s.open ? C.bg1 : "#221a3d"), border: "none", padding: "16px 12px", textAlign: "center",
+              cursor: "pointer", opacity: s.open ? 1 : .6,
+              ...(s.open ? { animation: "rino-glow 2.6s ease-in-out infinite" } : {}) }}>
+            <div style={{ position: "relative", display: "inline-block", marginBottom: 4 }}>
+              <TeacherIcon src={s.teacherImg} emoji={s.emoji} size={52} dim={!s.open} />
+              {!s.open && <span style={{ position: "absolute", top: -6, right: -10, fontSize: 16 }}>🔒</span>}
+            </div>
+            <div style={{ fontWeight: 900, fontSize: 16, color: s.open ? C.aqua : C.inkDim }}>{s.name}</div>
+            <div style={{ fontSize: 11, color: C.inkDim, marginTop: 2 }}>{s.teacher}</div>
+          </button>
+        ))}
+      </div>
+      {soon && (
+        <div style={{ ...clay(C.bg1), marginTop: 14, padding: "12px 16px", textAlign: "center",
+          color: C.gold, fontWeight: 800, fontSize: 14, animation: "rino-pop .3s ease" }}>
+          {t("comingSoon")}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ---------- ホーム（試練の間）---------- */
-function Home({ char, player, nickname, onBoss }) {
+function Home({ char, level, coins, nickname, onBoss, onBack }) {
   const [devOpen, setDevOpen] = useState(false);
   // 開放フラグだけコード側に残し、name/sub は辞書（t("rooms")）から取る
   const roomOpen = [true, false, false];
   const rooms = t("rooms").map((r, i) => ({ ...r, open: roomOpen[i] }));
   return (
     <div style={{ animation: "rino-pop .4s ease", position: "relative", minHeight: 520 }}>
-      <HUD p={player} name={nickname} />
-      <div style={{ textAlign: "center", marginBottom: 6 }}><Hero accent={char?.accent} size={120} /></div>
+      <HUD level={level} coins={coins} name={nickname} />
+      <div style={{ textAlign: "center", marginBottom: 6 }}><Hero accent={char?.accent} size={120} src={assetUrl(char?.img)} /></div>
       <h2 style={{ textAlign: "center", fontSize: 20, fontWeight: 900, marginBottom: 14 }}>{t("chooseTrial")}</h2>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {rooms.map((r, i) => (
@@ -795,6 +1113,16 @@ function Home({ char, player, nickname, onBoss }) {
           </button>
         ))}
       </div>
+
+      {onBack && (
+        <div style={{ textAlign: "center", marginTop: 16 }}>
+          <button onClick={onBack} className="rino-btn"
+            style={{ background: "transparent", border: "none", color: C.inkDim, fontWeight: 700,
+              fontSize: 13, cursor: "pointer", textDecoration: "underline" }}>
+            {t("backToSubjects")}
+          </button>
+        </div>
+      )}
 
       {/* 開発者用：極小・薄色の隠しボタン（右下隅）。DEV_PANEL_ENABLED=false で消える */}
       {DEV_PANEL_ENABLED && (
@@ -813,7 +1141,8 @@ function Home({ char, player, nickname, onBoss }) {
 /* ---------- バトル ---------- */
 const BOSS_HP = 100, PLAYER_HP = 100, HIT_DMG = 25, TAKE_DMG = 20;
 
-function Battle({ char, player, setPlayer, nickname, onWin, onHome }) {
+function Battle({ char, player, setPlayer, subjectKey, prog, nickname, onWin, onHome }) {
+  const meta = SUBJECT_META[subjectKey] || SUBJECT_META.math;
   const [bossHP, setBossHP] = useState(BOSS_HP);
   const [hp, setHp] = useState(PLAYER_HP);
   const [problem, setProblem] = useState(null);
@@ -822,25 +1151,32 @@ function Battle({ char, player, setPlayer, nickname, onWin, onHome }) {
   const [bossHit, setBossHit] = useState(false);
   const [phase, setPhase] = useState("loading"); // loading | answer | result
   const [picked, setPicked] = useState(null);
-  const [mode, setMode] = useState("choice");   // "choice" か "input"
+  const [mode, setMode] = useState("choice");   // "choice" | "input" | "arrange"
   const [inputVal, setInputVal] = useState("");
+  const [built, setBuilt] = useState([]);        // 並べ替え：選んだ札の並び
   const [explain, setExplain] = useState("");
   const [explaining, setExplaining] = useState(false);
   const convo = useRef([]);
 
   async function nextProblem() {
-    setPhase("loading"); setPicked(null); setExplain(""); setMood("idle");
+    setPhase("loading"); setPicked(null); setExplain(""); setMood("idle"); setBuilt([]);
     let p;
-    const lv = player.level;
-    const roll = Math.random();
-    try {
-      if (lv >= 5 && roll < 0.5) p = await genOyou(lv);
-      else if (lv >= 3 && roll < 0.7) p = genHyojun();
-      else p = genKihon(lv);
-    } catch { p = genHyojun(); }
-    const ch = p.choices || makeChoices(p.a);
+    const lv = prog.level;
+    if (subjectKey === "english") {
+      p = genEnglishProblem(lv);
+    } else {
+      const roll = Math.random();
+      try {
+        if (lv >= 5 && roll < 0.5) p = await genOyou(lv);
+        else if (lv >= 3 && roll < 0.7) p = genHyojun();
+        else p = genKihon(lv);
+      } catch { p = genHyojun(); }
+      p.type = "number";
+      p.ui = pickAnswerMode(lv, p.a);
+    }
+    const ch = p.choices || (p.type === "number" ? makeChoices(p.a) : []);
     setProblem(p); setChoices(ch);
-    setMode(pickAnswerMode(player.level, p.a)); setInputVal("");
+    setMode(p.ui || "choice"); setInputVal("");
     setPhase("answer");
   }
   useEffect(() => { nextProblem(); /* eslint-disable-next-line */ }, []);
@@ -849,31 +1185,34 @@ function Battle({ char, player, setPlayer, nickname, onWin, onHome }) {
     setExplaining(true);
     try {
       if (convo.current.length === 0) {
-        convo.current = [{ role: "user", content: `問題：${problem.q}　正解：${problem.a}。生徒が間違えました。まずは2〜3行だけ。やさしい励ましと、答えにつながる小さなヒントを1つだけ伝えて。くわしい手順はまだ書かないで。` }];
+        convo.current = [{ role: "user", content: `問題：${problem.q || problem.a}　正解：${problem.a}。生徒が間違えました。まずは2〜3行だけ。やさしい励ましと、答えにつながる小さなヒントを1つだけ伝えて。くわしい手順はまだ書かないで。` }];
       } else if (extra) {
         convo.current.push({ role: "user", content: extra });
       }
-      const txt = await callClaude(convo.current, EXPLAIN_SYSTEM);
+      const txt = await callClaude(convo.current, meta.explain);
       convo.current.push({ role: "assistant", content: txt });
       setExplain(txt);
     } catch {
-      setExplain(localExplain(problem));
+      setExplain(subjectKey === "english" ? localExplainEn(problem) : localExplain(problem));
     } finally { setExplaining(false); }
   }
 
   function answer(val) {
     if (phase !== "answer") return;
     setPicked(val);
-    const correct = val === problem.a;
+    const correct = sameAns(val, problem);
     setPhase("result");
     if (correct) {
       setMood("happy");
       setBossHit(true); setTimeout(() => setBossHit(false), 500);
       const nb = Math.max(0, bossHP - HIT_DMG); setBossHP(nb);
       setPlayer(pl => {
-        const xp = pl.xp + 1, coins = pl.coins + 10;
-        const need = pl.level * 3;
-        return xp >= need ? { level: pl.level + 1, xp: 0, coins } : { ...pl, xp, coins };
+        const cur = (pl.subjects && pl.subjects[subjectKey]) || { level: 1, xp: 0 };
+        const xp = cur.xp + 1;
+        const need = cur.level * 3;
+        const coins = pl.coins + 10;
+        const nextCur = xp >= need ? { level: cur.level + 1, xp: 0 } : { level: cur.level, xp };
+        return { ...pl, coins, subjects: { ...pl.subjects, [subjectKey]: nextCur } };
       });
       if (nb <= 0) { setTimeout(onWin, 900); }
     } else {
@@ -886,27 +1225,53 @@ function Battle({ char, player, setPlayer, nickname, onWin, onHome }) {
 
   function submitInput() {
     if (phase !== "answer") return;
-    const v = parseInput(inputVal);
-    if (v === null) return; // 空や記号だけのときは何もしない
-    answer(v);
+    if (problem.type === "number") {
+      const v = parseInput(inputVal);
+      if (v === null) return; // 空や記号だけのときは何もしない
+      answer(v);
+    } else {
+      const s = inputVal.trim();
+      if (s === "") return;
+      answer(s);
+    }
   }
   function toggleSign() {
     setInputVal(s => (s.startsWith("-") ? s.slice(1) : "-" + s));
+  }
+  // 並べ替え：札をタップで追加／取り消し
+  function pickTile(i) {
+    if (phase !== "answer") return;
+    if (built.includes(i)) return;
+    setBuilt(b => [...b, i]);
+  }
+  function undoTile() {
+    if (phase !== "answer") return;
+    setBuilt(b => b.slice(0, -1));
+  }
+  function submitArrange() {
+    if (phase !== "answer" || built.length === 0) return;
+    const sentence = built.map(i => problem.tiles[i]).join(" ");
+    answer(sentence);
   }
 
   const dead = hp <= 0;
 
   return (
     <div style={{ animation: "rino-pop .35s ease" }}>
-      <HUD p={player} name={nickname} />
+      <HUD level={prog.level} coins={player.coins} name={nickname} />
       <div style={{ ...clay(C.bg1), padding: 14, marginBottom: 12 }}>
-        <div style={{ textAlign: "center", fontWeight: 900, color: C.danger, marginBottom: 4 }}>👾 {t("bossName")}</div>
-        <DarkNumber hit={bossHit} />
+        <div style={{ textAlign: "center", fontWeight: 900, color: C.danger, marginBottom: 4 }}>👾 {meta.bossName}</div>
+        <DarkNumber hit={bossHit} tokens={meta.tokens} />
         <HPBar label={t("bossHP")} value={bossHP} max={BOSS_HP} color={C.danger} />
       </div>
 
       <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 10 }}>
-        <Hero accent={char?.accent} mood={mood} size={92} />
+        <Hero accent={char?.accent} mood={mood} size={92} src={assetUrl(char?.img)}
+          lottieSet={char && char.id && LOTTIE.chars[char.id] ? {
+            idle: assetUrl(LOTTIE.chars[char.id].idle),
+            happy: assetUrl(LOTTIE.chars[char.id].happy),
+            sad: assetUrl(LOTTIE.chars[char.id].sad),
+          } : null} />
         <div style={{ flex: 1 }}><HPBar label={t("hpOf", nickname)} value={hp} max={PLAYER_HP} color={C.mint} /></div>
       </div>
 
@@ -928,8 +1293,35 @@ function Battle({ char, player, setPlayer, nickname, onWin, onHome }) {
             <span style={{ fontSize: 12, fontWeight: 800, color: C.bg0, background: C.butter, padding: "3px 10px", borderRadius: 999 }}>{problem.kind}</span>
             <span style={{ fontSize: 12, color: C.inkDim }}>{t("attackHint")}</span>
           </div>
-          <div style={{ textAlign: "center", fontSize: 28, fontWeight: 900, margin: "10px 0 18px", letterSpacing: 1 }}>{problem.q}{problem.kind === "応用" ? "" : " ="}</div>
-          {mode === "input" ? (
+          <div style={{ textAlign: "center", fontSize: problem.type === "number" ? 28 : 22, fontWeight: 900, margin: "10px 0 18px", letterSpacing: problem.type === "number" ? 1 : 0 }}>
+            {mode === "arrange" ? t("arrangeHint") : <>{problem.q}{(problem.type === "number" && problem.kind !== "応用") ? " =" : ""}</>}
+          </div>
+          {mode === "arrange" ? (
+            <div>
+              <div style={{ ...clay(C.bg2, false), minHeight: 52, padding: "10px 12px", marginBottom: 10, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", justifyContent: "center" }}>
+                {built.length === 0
+                  ? <span style={{ color: C.inkDim, fontWeight: 700, fontSize: 13 }}>{t("inputHint")}</span>
+                  : built.map((ti, k) => (
+                      <span key={k} style={{ ...clay(C.lav), padding: "6px 12px", fontWeight: 900, color: C.bg0, fontSize: 18 }}>{problem.tiles[ti]}</span>
+                    ))}
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginBottom: 10 }}>
+                {problem.tiles.map((w, i) => (
+                  <button key={i} className="rino-btn" disabled={phase === "result" || built.includes(i)} onClick={() => pickTile(i)}
+                    style={{ ...clay(built.includes(i) ? "#5b5080" : C.butter), border: "none", padding: "10px 14px", fontSize: 18, fontWeight: 900, color: C.bg0,
+                      opacity: built.includes(i) ? .4 : 1, cursor: phase === "result" ? "default" : "pointer" }}>{w}</button>
+                ))}
+              </div>
+              {phase !== "result"
+                ? <div style={{ display: "flex", gap: 8 }}>
+                    <Btn bg={C.peach} style={{ flex: "0 0 auto", padding: "12px 16px" }} onClick={undoTile}>{t("clearBtn")}</Btn>
+                    <Btn full bg={C.lav} onClick={submitArrange}>{t("answerBtn")}</Btn>
+                  </div>
+                : <div style={{ textAlign: "center", fontWeight: 800, color: sameAns(picked, problem) ? C.mint : C.danger }}>
+                    {t("yourAnswer")}{picked}{sameAns(picked, problem) ? t("correctMark") : t("answerWas", problem.a)}
+                  </div>}
+            </div>
+          ) : mode === "input" ? (
             <div>
               {phase !== "result" && (
                 <div style={{ fontSize: 12, color: C.inkDim, textAlign: "center", marginBottom: 8 }}>
@@ -937,9 +1329,11 @@ function Battle({ char, player, setPlayer, nickname, onWin, onHome }) {
                 </div>
               )}
               <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-                <button className="rino-btn" onClick={toggleSign} disabled={phase === "result"}
-                  style={{ ...clay(C.butter), border: "none", width: 56, fontSize: 22, fontWeight: 900, color: C.bg0, cursor: phase === "result" ? "default" : "pointer" }}>±</button>
-                <input type="text" inputMode="numeric" value={inputVal}
+                {problem.type === "number" && (
+                  <button className="rino-btn" onClick={toggleSign} disabled={phase === "result"}
+                    style={{ ...clay(C.butter), border: "none", width: 56, fontSize: 22, fontWeight: 900, color: C.bg0, cursor: phase === "result" ? "default" : "pointer" }}>±</button>
+                )}
+                <input type="text" inputMode={problem.type === "number" ? "numeric" : "text"} value={inputVal}
                   onChange={e => setInputVal(e.target.value)}
                   onKeyDown={e => { if (e.key === "Enter") submitInput(); }}
                   disabled={phase === "result"} placeholder={t("inputPlaceholder")}
@@ -947,14 +1341,14 @@ function Battle({ char, player, setPlayer, nickname, onWin, onHome }) {
               </div>
               {phase !== "result"
                 ? <Btn full bg={C.lav} onClick={submitInput}>{t("answerBtn")}</Btn>
-                : <div style={{ textAlign: "center", fontWeight: 800, color: picked === problem.a ? C.mint : C.danger }}>
-                    {t("yourAnswer")}{picked}{picked === problem.a ? t("correctMark") : t("answerWas", problem.a)}
+                : <div style={{ textAlign: "center", fontWeight: 800, color: sameAns(picked, problem) ? C.mint : C.danger }}>
+                    {t("yourAnswer")}{picked}{sameAns(picked, problem) ? t("correctMark") : t("answerWas", problem.a)}
                   </div>}
             </div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               {choices.map((c, i) => {
-                const isCorrect = c === problem.a, isPicked = c === picked;
+                const isCorrect = sameAns(c, problem), isPicked = c === picked;
                 let bg = C.lav;
                 if (phase === "result") { if (isCorrect) bg = C.mint; else if (isPicked) bg = C.danger; else bg = "#5b5080"; }
                 return (
@@ -967,17 +1361,19 @@ function Battle({ char, player, setPlayer, nickname, onWin, onHome }) {
             </div>
           )}
 
-          {phase === "result" && picked === problem.a && (
+          {phase === "result" && sameAns(picked, problem) && (
             <div style={{ textAlign: "center", marginTop: 14 }}>
               <p style={{ color: C.mint, fontWeight: 900, fontSize: 18 }}>{t("correctPlus")} <Coins size={16} style={{ verticalAlign: "-2px" }} /></p>
               {bossHP > 0 && <Btn full bg={C.aqua} style={{ marginTop: 10 }} onClick={nextProblem}>{t("nextSpell")}</Btn>}
             </div>
           )}
 
-          {phase === "result" && picked !== problem.a && (
-            <ExplainPanel explain={explain} explaining={explaining}
+          {phase === "result" && !sameAns(picked, problem) && (
+            <ExplainPanel explain={explain} explaining={explaining} teacher={meta.teacher} teacherImg={meta.teacherImg} teacherEmoji={meta.emoji}
               onWhy={() => fetchExplain("「なんで？」と聞かれました。なぜその答えになるのか、考え方のステップを順番に、わかりやすく説明して。")}
-              onEasier={() => fetchExplain("「もっとかんたんに」と言われました。これまでとは別の、身近なたとえ（温度計・エレベーターの階・おこづかいの貸し借りなど）を1つだけ使って、いちばんやさしく説明して。同じ説明のくり返しは避けて。")}
+              onEasier={() => fetchExplain(subjectKey === "english"
+                ? "「もっとかんたんに」と言われました。主語による be動詞の見分け方を、別の身近な言い方で、いちばんやさしく説明して。同じ説明のくり返しは避けて。"
+                : "「もっとかんたんに」と言われました。これまでとは別の、身近なたとえ（温度計・エレベーターの階・おこづかいの貸し借りなど）を1つだけ使って、いちばんやさしく説明して。同じ説明のくり返しは避けて。")}
               onNext={nextProblem} />
           )}
         </div>
@@ -991,20 +1387,27 @@ function Battle({ char, player, setPlayer, nickname, onWin, onHome }) {
 }
 
 /* AI解説パネル */
-function ExplainPanel({ explain, explaining, onWhy, onEasier, onNext }) {
+function ExplainPanel({ explain, explaining, onWhy, onEasier, onNext, teacher = TEACHER, teacherImg = null, teacherEmoji = null }) {
+  const [imgErr, setImgErr] = useState(false);
+  const avatar = teacherImg && !imgErr
+    ? <img src={teacherImg} alt="" width={72} height={72} onError={() => setImgErr(true)}
+        style={{ width: 72, height: 72, objectFit: "contain", display: "block" }} />
+    : teacherEmoji
+      ? <div style={{ fontSize: 52, lineHeight: 1 }}>{teacherEmoji}</div>
+      : <Magi size={84} />;
   return (
     <div style={{ marginTop: 14 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center", marginBottom: 6 }}>
-        <Magi size={84} />
+        {avatar}
         <p style={{ color: C.peach, fontWeight: 900, textAlign: "left", margin: 0 }}>
-          {TEACHER}：<br />{t("teacherIntro")}
+          {teacher}：<br />{t("teacherIntro")}
         </p>
       </div>
       <div style={{ ...clay(C.bg2, false), padding: 16, minHeight: 70, fontSize: 14, lineHeight: 1.8, whiteSpace: "pre-wrap" }}>
         {explaining && !explain ? (
           <span style={{ color: C.inkDim, display: "inline-flex", alignItems: "center", gap: 8 }}>
             <span style={{ width: 16, height: 16, borderRadius: "50%", border: `3px solid rgba(255,255,255,.15)`, borderTopColor: C.aqua, animation: "rino-spin 1s linear infinite", display: "inline-block" }} />
-            {TEACHER}{t("thinking")}
+            {teacher}{t("thinking")}
           </span>
         ) : (
           <span><Lightbulb size={16} color={C.gold} style={{ verticalAlign: "-3px", marginRight: 4 }} />{explain}</span>
@@ -1020,18 +1423,23 @@ function ExplainPanel({ explain, explaining, onWhy, onEasier, onNext }) {
 }
 
 /* ---------- 勝利 ---------- */
-function Victory({ char, player, nickname, onHome }) {
+function Victory({ char, level, coins, nickname, onHome }) {
+  // 勝利画面のキャラだけ Lottie を試す（無ければ従来の画像/SVGに自動で戻る）
+  const heroLottie = char && char.id ? LOTTIE.chars[char.id] : null;
+  const heroLottieSet = heroLottie ? {
+    idle: assetUrl(heroLottie.idle), happy: assetUrl(heroLottie.happy), sad: assetUrl(heroLottie.sad),
+  } : null;
   return (
     <div style={{ textAlign: "center", animation: "rino-pop .4s ease" }}>
       <div style={{ position: "relative" }}>
-        <Hero accent={char?.accent} mood="happy" size={170} />
+        <Hero accent={char?.accent} mood="happy" size={170} src={assetUrl(char?.img)} lottieSet={heroLottieSet} />
       </div>
       <h2 style={{ fontSize: 26, fontWeight: 900, color: C.gold, textShadow: `0 0 20px ${C.gold}` }}>{t("sealBroken")}</h2>
       <p style={{ color: C.inkDim, margin: "6px 0 18px" }}>{t("guardianReturned")}<br />{t("wellDone", nickname)}</p>
       <div style={{ ...clay(C.bg1), padding: 18, marginBottom: 18 }}>
         <div style={{ display: "flex", justifyContent: "space-around", fontWeight: 900 }}>
-          <span><Star size={18} color={C.butter} style={{ verticalAlign: "-3px" }} /> Lv.{player.level}</span>
-          <span><Coins size={18} color={C.gold} style={{ verticalAlign: "-3px" }} /> {player.coins}</span>
+          <span><Star size={18} color={C.butter} style={{ verticalAlign: "-3px" }} /> Lv.{level}</span>
+          <span><Coins size={18} color={C.gold} style={{ verticalAlign: "-3px" }} /> {coins}</span>
           <span><Heart size={18} color={C.danger} style={{ verticalAlign: "-3px" }} /> {t("clear")}</span>
         </div>
       </div>

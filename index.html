@@ -1,31 +1,44 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Rinogical</title>
-<meta name="theme-color" content="#160f2e" />
-<link rel="manifest" href="manifest.json" />
-<link rel="apple-touch-icon" href="icon-180.png" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="Rinogical" />
-<style>html,body{margin:0;background:#160f2e}#root{min-height:100vh}</style>
-<script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@18.2.0",
-    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client?external=react",
-    "lucide-react": "https://esm.sh/lucide-react@0.383.0?external=react",
-    "lottie-web": "https://esm.sh/lottie-web@5.12.2"
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Rinogical（りのじかる）</title>
+
+  <!-- PWA（iPhoneホーム画面インストール対応） -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Rinogical" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#1a1626" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-180.png" />
+
+  <!-- importmap：esm.sh からライブラリを読み込む -->
+  <script type="importmap">
+  {
+    "imports": {
+      "react": "https://esm.sh/react@18.2.0",
+      "react-dom/client": "https://esm.sh/react-dom@18.2.0/client?external=react",
+      "lucide-react": "https://esm.sh/lucide-react@0.383.0?external=react",
+      "lottie-web": "https://esm.sh/lottie-web@5.12.2"
+    }
   }
-}
-</script>
-<script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
+  </script>
+
+  <!-- Babel standalone：JSXをブラウザで変換 -->
+  <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+
+  <style>
+    html, body { margin: 0; padding: 0; background: #1a1626; }
+    #root { min-height: 100vh; }
+  </style>
 </head>
 <body>
-<div id="root"></div>
-<script type="text/babel" data-type="module" data-presets="react">
+  <div id="root"></div>
+
+  <!-- 本文（Rinogical.jsx の中身） -->
+  <script type="text/babel" data-type="module" data-presets="react">
 import React, { useState, useEffect, useRef } from "react";
 import { Coins, Sparkles, Star, Heart, Lightbulb, ArrowRight, RefreshCw, Lock } from "lucide-react";
 
@@ -428,11 +441,50 @@ function genKihon(level) {
 }
 
 const HYOJUN = [
+  // --- 既存の10問 ---
   { q: "(-2) + (-5) + 3", a: -4 }, { q: "8 - 12 + (-4)", a: -8 },
   { q: "(-3) × 4", a: -12 }, { q: "(-6) × (-5)", a: 30 },
   { q: "(-18) ÷ 3", a: -6 }, { q: "20 ÷ (-4)", a: -5 },
   { q: "(-2)³", a: -8 }, { q: "-3²", a: -9 },
   { q: "|-7| + |-3|", a: 10 }, { q: "(-4) - (-9)", a: 5 },
+
+  // --- 足し引き（9問） ---
+  { q: "(-7) + (-8)", a: -15 }, { q: "(-15) + 6", a: -9 },
+  { q: "12 + (-20)", a: -8 }, { q: "(-9) - (-4)", a: -5 },
+  { q: "3 - 11 - (-5)", a: -3 }, { q: "(-6) + (-7) + 10", a: -3 },
+  { q: "(-13) - 8", a: -21 }, { q: "5 - (-9) - 7", a: 7 },
+  { q: "(-4) + 9 + (-12)", a: -7 },
+
+  // --- かけ割り（9問） ---
+  { q: "(-7) × 6", a: -42 }, { q: "(-8) × (-9)", a: 72 },
+  { q: "(-48) ÷ 6", a: -8 }, { q: "(-54) ÷ (-9)", a: 6 },
+  { q: "(-5) × 4 × (-3)", a: 60 }, { q: "36 ÷ (-12)", a: -3 },
+  { q: "(-2) × (-3) × (-5)", a: -30 }, { q: "(-72) ÷ 8", a: -9 },
+  { q: "(-6) × 7", a: -42 },
+
+  // --- 累乗（8問） ---
+  { q: "(-3)²", a: 9 }, { q: "(-4)²", a: 16 },
+  { q: "-4²", a: -16 }, { q: "(-2)⁴", a: 16 },
+  { q: "-2³", a: -8 }, { q: "(-5)²", a: 25 },
+  { q: "(-1)⁵", a: -1 }, { q: "-3³", a: -27 },
+
+  // --- 絶対値（8問） ---
+  { q: "|-12|", a: 12 }, { q: "|-8| - |5|", a: 3 },
+  { q: "|3 - 10|", a: 7 }, { q: "|-6| × (-2)", a: -12 },
+  { q: "|-15| ÷ (-3)", a: -5 }, { q: "-|-9|", a: -9 },
+  { q: "|-4| + |-11|", a: 15 }, { q: "|2 - 9| - |-3|", a: 4 },
+
+  // --- かっこ外し（8問） ---
+  { q: "-(-6) + (-4)", a: 2 }, { q: "8 - (3 - 10)", a: 15 },
+  { q: "(-5) - (2 - 8)", a: 1 }, { q: "-(7 - 12) - 3", a: 2 },
+  { q: "(-4) + (-(-9))", a: 5 }, { q: "10 - (-(-6))", a: 4 },
+  { q: "-(2 + (-9))", a: 7 }, { q: "(1 - 7) - (-(-2))", a: -8 },
+
+  // --- 四則混合（8問） ---
+  { q: "(-2) × 3 + 5", a: -1 }, { q: "12 ÷ (-4) - 6", a: -9 },
+  { q: "(-3)² - 4 × 5", a: -11 }, { q: "8 + (-2) × (-4)", a: 16 },
+  { q: "(-10) ÷ 2 + (-3) × 2", a: -11 }, { q: "(-6) + 4² ÷ (-8)", a: -8 },
+  { q: "5 × (-2) - (-3) × 4", a: 2 }, { q: "(-1)³ × 7 + 9", a: 2 },
 ];
 const genHyojun = () => ({ ...HYOJUN[rint(0, HYOJUN.length - 1)], kind: "標準" });
 
@@ -1438,10 +1490,10 @@ function Victory({ char, level, coins, nickname, onHome }) {
 }
 
 
-/* ===== GitHub Pages 用レンダリング ===== */
+/* ===== index.html 用：レンダリング ===== */
 import { createRoot } from "react-dom/client";
 createRoot(document.getElementById("root")).render(<Rinogical />);
 
-</script>
+  </script>
 </body>
 </html>
