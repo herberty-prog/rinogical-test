@@ -12,7 +12,7 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="theme-color" content="#1a1626" />
   <link rel="manifest" href="manifest.json" />
-  <link rel="apple-touch-icon" href="icon-180.png" />
+  <link rel="apple-touch-icon" href="assets/icon-180.png" />
 
   <!-- importmap：esm.sh からライブラリを読み込む -->
   <script type="importmap">
@@ -545,12 +545,13 @@ const EXPLAIN_SYSTEM =
   "正負の数の単元。答えそのものより『考え方のステップ』を伝える。絵文字は1〜2個までOK。" +
   "毎回みじかく。長く書きすぎない。";
 
-async function genOyou(level) {
-  const sys =
+async function genOyou(level, sysOverride) {
+  const sysDefault =
     "あなたは中学1年生（東京書籍・正負の数）の数学問題を作る出題者です。" +
     "答えが必ず1つの整数になる、少し考える応用問題を1問だけ作ってください。" +
     "出力はJSONのみ。前置き・マークダウン・コードフェンス禁止。" +
     'フォーマット: {"q":"問題文（短く）","a":整数,"choices":[4つの整数。aを必ず含む]}';
+  const sys = sysOverride || sysDefault;
   const txt = await callClaude([{ role: "user", content: `レベル${level}相当の応用問題を1問。` }], sys);
   const clean = txt.replace(/```json|```/g, "").trim();
   const obj = JSON.parse(clean);
@@ -645,6 +646,99 @@ const SUBJECT_META = {
 };
 
 /* ===========================================================================
+   数学の単元（正負の数 / 文字式 / …）を「データ」として1か所にまとめる
+   - 新しい単元はここに足すだけ。Battle はこの設定を読んで問題を出し分ける。
+   - 将来の小学生版（B案）も、この単位で中身を差し替えれば複製しやすい。
+   =========================================================================== */
+
+/* ----- 文字式 v1：式の値（代入）。答えはすべて整数 ----- */
+/* 超基本：x に数を代入して値を求める問題を無限生成（1次・係数は正） */
+function genKihon_moji(level) {
+  const vars = ["x", "a", "y"];
+  const vname = vars[rint(0, vars.length - 1)];
+  const k = rint(1, Math.min(3 + level, 6)); // 係数（正）
+  const b = rint(-9, 9);                       // 定数
+  const v = rint(-6, 6);                        // 代入する値
+  const coef = (k === 1) ? vname : `${k}${vname}`;
+  const cons = (b === 0) ? "" : (b > 0 ? ` + ${b}` : ` - ${-b}`);
+  return { q: `${vname} = ${v} のとき　${coef}${cons} の値`, a: k * v + b, kind: "超基本" };
+}
+
+/* 標準プール（代入。2変数・2乗・負の係数で歯ごたえ。全問 答えは整数・検算済み） */
+const MOJI = [
+  { q: "x = 3 のとき　2x + 1 の値", a: 7 },
+  { q: "x = -4 のとき　x + 9 の値", a: 5 },
+  { q: "a = 5 のとき　3a - 8 の値", a: 7 },
+  { q: "x = -2 のとき　5x の値", a: -10 },
+  { q: "x = 4 のとき　-2x + 5 の値", a: -3 },
+  { q: "y = -3 のとき　-y + 2 の値", a: 5 },
+  { q: "a = -6 のとき　-a - 1 の値", a: 5 },
+  { q: "x = 7 のとき　2x - 10 の値", a: 4 },
+  { q: "x = -3 のとき　x² の値", a: 9 },
+  { q: "x = 2 のとき　x² + 1 の値", a: 5 },
+  { q: "a = -2 のとき　a² - 3 の値", a: 1 },
+  { q: "x = -1 のとき　3x² の値", a: 3 },
+  { q: "x = 3, y = -2 のとき　2x + y の値", a: 4 },
+  { q: "x = -1, y = 3 のとき　4x - y の値", a: -7 },
+  { q: "a = 5, b = -4 のとき　a + b の値", a: 1 },
+  { q: "x = -2, y = -3 のとき　x - y の値", a: 1 },
+  { q: "x = 6, y = 2 のとき　x - 3y の値", a: 0 },
+  { q: "a = -4, b = 5 のとき　2a + b の値", a: -3 },
+];
+
+/* 応用：AIに代入の文章題を作らせる（答えは整数） */
+const MOJI_OYOU_SYS =
+  "あなたは中学1年生（東京書籍・文字式／式の値）の数学問題を作る出題者です。" +
+  "x や a に数を代入して値を求める、少し考える文章題を1問だけ作ってください。" +
+  "答えが必ず1つの整数になること。出力はJSONのみ。前置き・マークダウン・コードフェンス禁止。" +
+  'フォーマット: {"q":"問題文（短く）","a":整数,"choices":[4つの整数。aを必ず含む]}';
+
+/* AI解説（文字式・代入用）。先生は数学共通の「マギ先生」 */
+const EXPLAIN_MOJI =
+  `あなたは中学1年生のための、やさしい数学の先生「${TEACHER}」です。` +
+  "数式を操る魔法使いで、眼鏡と杖を持っています。魔法学校の先生らしい言葉を少しだけ使います（使いすぎない）。" +
+  "解説スタイル：①短文で ②箇条書きは行頭に「・」だけ ③むずかしい漢字にはふりがな ④まず良いところを褒める ⑤絶対に責めない・否定しない。" +
+  "重要：マークダウン記号（** や * や # や ```）は絶対に使わない。" +
+  "文字式（式の値・代入）の単元。文字に数を入れて計算する『代入（だいにゅう）』の考え方を中心に。" +
+  "ポイント：2x は 2×x のこと（かけ算の記号がかくれている）／負の数を代入するときは ( ) をつける（例：x=-3 のとき x² =(-3)²）。" +
+  "答えそのものより『手順』を伝える。絵文字は1〜2個までOK。毎回みじかく。";
+
+/* 文字式のローカル解説フォールバック（電波が悪いとき用） */
+function localExplainMoji(p) {
+  return [
+    "ナイスチャレンジ！👏 いっしょに見直そう。",
+    "・文字に数を入れる『代入（だいにゅう）』だよ。",
+    "・2x は 2×x のこと。かけ算の記号がかくれているよ。",
+    "・マイナスを入れるときは ( ) をつけてね。例：x=-3 → (-3)。",
+    `・答えは ${p.a} になるよ。`,
+    "もう一回いける！🌟",
+  ].join("\n");
+}
+
+/* 共通：標準プールからランダムに1問選ぶ */
+const genFromPool = (pool) => ({ ...pool[rint(0, pool.length - 1)], kind: "標準" });
+
+/* 単元データ本体。Battle はここを見て問題・ボス名・解説を切り替える */
+const MATH_UNITS = {
+  seifu: {
+    name: "正負の数", bossName: "ダーク・ナンバー",
+    tokens: SUBJECT_META.math.tokens,
+    genKihon: genKihon, pool: HYOJUN,
+    genOyou: (lv) => genOyou(lv),
+    explain: EXPLAIN_SYSTEM, localExplain: localExplain,
+  },
+  moji: {
+    name: "文字式", bossName: "シャドウ・レター",
+    tokens: ["x", "a", "2x", "y", "-3", "x+1", "5", "-x"],
+    genKihon: genKihon_moji, pool: MOJI,
+    genOyou: (lv) => genOyou(lv, MOJI_OYOU_SYS),
+    explain: EXPLAIN_MOJI, localExplain: localExplainMoji,
+  },
+};
+/* 部屋の並び順（試練の間の上から）。i 番目 → 単元キー */
+const MATH_UNIT_KEYS = ["seifu", "moji", "houtei"];
+
+/* ===========================================================================
    多言語の土台（i18n）
    - 画面に出る文章は、すべてこの STR 辞書にまとめる。
    - LANG を変えると言語が切り替わる（今は "ja" だけ。英語を足すなら STR.en を埋めて "en" に）。
@@ -694,7 +788,7 @@ const STR = {
     clearBtn: "けす",
     rooms: [
       { name: "暗黒の数字の間", sub: "正負の数 / ボス：ダーク・ナンバー" },
-      { name: "文字式の回廊", sub: "Phase 2 で解放" },
+      { name: "文字式の回廊", sub: "式の値（代入）/ ボス：シャドウ・レター" },
       { name: "方程式の聖堂", sub: "Phase 2 で解放" },
     ],
     bossName: "ダーク・ナンバー",
@@ -720,7 +814,7 @@ const STR = {
     nextProblem: "つぎの問題にすすむ →",
     backToTrials: "← 試練の間にもどる",
     sealBroken: "封印を解いた！",
-    guardianReturned: "「暗黒の数字の間」の守護者がもどってきた。",
+    guardianReturned: "試練の間の守護者がもどってきた。",
     wellDone: (n) => `よくやったね、${n}！`,
     clear: "クリア",
     backToTrialsBtn: "試練の間にもどる",
@@ -884,6 +978,7 @@ function Rinogical() {
   // coins は全科目共通。level/xp は科目ごと（数学・英語…）に分けて持つ
   const [player, setPlayer] = useState({ coins: 0, subjects: { math: { level: 1, xp: 0 }, english: { level: 1, xp: 0 } } });
   const [subject, setSubject] = useState("math"); // いまプレイ中の科目
+  const [unit, setUnit] = useState("seifu");       // 数学のいまの単元（正負の数 / 文字式 …）
   const [battleReturn, setBattleReturn] = useState("trials"); // バトル後の戻り先
   const prog = (player.subjects && player.subjects[subject]) || { level: 1, xp: 0 };
   const deviceIdRef = useRef(null);
@@ -984,9 +1079,9 @@ function Rinogical() {
         {screen === "home" && <SubjectHome char={character} coins={player.coins} nickname={nickname}
           onMath={() => { setSubject("math"); setScreen("trials"); }}
           onEnglish={() => { setSubject("english"); setBattleReturn("home"); setScreen("battle"); }} />}
-        {screen === "trials" && <Home char={character} level={prog.level} coins={player.coins} nickname={nickname} onBoss={() => { setBattleReturn("trials"); setScreen("battle"); }} onBack={() => setScreen("home")} />}
+        {screen === "trials" && <Home char={character} level={prog.level} coins={player.coins} nickname={nickname} onBoss={(i) => { setUnit(MATH_UNIT_KEYS[i] || "seifu"); setBattleReturn("trials"); setScreen("battle"); }} onBack={() => setScreen("home")} />}
         {screen === "battle" && (
-          <Battle char={character} player={player} setPlayer={setPlayer} subjectKey={subject} prog={prog} nickname={nickname}
+          <Battle char={character} player={player} setPlayer={setPlayer} subjectKey={subject} unitKey={unit} prog={prog} nickname={nickname}
             onWin={() => setScreen("victory")} onHome={() => setScreen(battleReturn)} />
         )}
         {screen === "victory" && <Victory char={character} level={prog.level} coins={player.coins} nickname={nickname} onHome={() => setScreen(battleReturn)} />}
@@ -1133,7 +1228,7 @@ function SubjectHome({ char, coins, nickname, onMath, onEnglish }) {
 function Home({ char, level, coins, nickname, onBoss, onBack }) {
   const [devOpen, setDevOpen] = useState(false);
   // 開放フラグだけコード側に残し、name/sub は辞書（t("rooms")）から取る
-  const roomOpen = [true, false, false];
+  const roomOpen = [true, true, false];
   const rooms = t("rooms").map((r, i) => ({ ...r, open: roomOpen[i] }));
   return (
     <div style={{ animation: "rino-pop .4s ease", position: "relative", minHeight: 520 }}>
@@ -1142,7 +1237,7 @@ function Home({ char, level, coins, nickname, onBoss, onBack }) {
       <h2 style={{ textAlign: "center", fontSize: 20, fontWeight: 900, marginBottom: 14 }}>{t("chooseTrial")}</h2>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {rooms.map((r, i) => (
-          <button key={i} className="rino-btn" disabled={!r.open} onClick={r.open ? onBoss : undefined}
+          <button key={i} className="rino-btn" disabled={!r.open} onClick={r.open ? () => onBoss(i) : undefined}
             style={{ ...clay(r.open ? C.bg1 : "#221a3d"), border: "none", padding: "16px 18px", textAlign: "left",
               display: "flex", alignItems: "center", gap: 12, cursor: r.open ? "pointer" : "default", opacity: r.open ? 1 : .55,
               ...(r.open ? { animation: "rino-glow 2.6s ease-in-out infinite" } : {}) }}>
@@ -1182,8 +1277,12 @@ function Home({ char, level, coins, nickname, onBoss, onBack }) {
 /* ---------- バトル ---------- */
 const BOSS_HP = 100, PLAYER_HP = 100, HIT_DMG = 25, TAKE_DMG = 20;
 
-function Battle({ char, player, setPlayer, subjectKey, prog, nickname, onWin, onHome }) {
-  const meta = SUBJECT_META[subjectKey] || SUBJECT_META.math;
+function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, onWin, onHome }) {
+  // 数学のときは単元（正負の数 / 文字式 …）の設定 U を読む。英語のときは U=null。
+  const U = subjectKey === "math" ? (MATH_UNITS[unitKey] || MATH_UNITS.seifu) : null;
+  const meta = U
+    ? { ...SUBJECT_META.math, bossName: U.bossName, tokens: U.tokens, explain: U.explain }
+    : (SUBJECT_META[subjectKey] || SUBJECT_META.math);
   const [bossHP, setBossHP] = useState(BOSS_HP);
   const [hp, setHp] = useState(PLAYER_HP);
   const [problem, setProblem] = useState(null);
@@ -1208,10 +1307,10 @@ function Battle({ char, player, setPlayer, subjectKey, prog, nickname, onWin, on
     } else {
       const roll = Math.random();
       try {
-        if (lv >= 5 && roll < 0.5) p = await genOyou(lv);
-        else if (lv >= 3 && roll < 0.7) p = genHyojun();
-        else p = genKihon(lv);
-      } catch { p = genHyojun(); }
+        if (lv >= 5 && roll < 0.5) p = await U.genOyou(lv);
+        else if (lv >= 3 && roll < 0.7) p = genFromPool(U.pool);
+        else p = U.genKihon(lv);
+      } catch { p = genFromPool(U.pool); }
       p.type = "number";
       p.ui = pickAnswerMode(lv, p.a);
     }
@@ -1234,7 +1333,7 @@ function Battle({ char, player, setPlayer, subjectKey, prog, nickname, onWin, on
       convo.current.push({ role: "assistant", content: txt });
       setExplain(txt);
     } catch {
-      setExplain(subjectKey === "english" ? localExplainEn(problem) : localExplain(problem));
+      setExplain(subjectKey === "english" ? localExplainEn(problem) : (U ? U.localExplain(problem) : localExplain(problem)));
     } finally { setExplaining(false); }
   }
 
