@@ -482,14 +482,25 @@ function parseInput(s) {
 const AI_PROXY_URL = "https://rinogical-ai.jet-speeder-herberty.workers.dev";
 
 async function callClaude(messages, system) {
-  const res = await fetch(AI_PROXY_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ system: system, messages: messages }),
-  });
-  const data = await res.json();
-  if (!res.ok || data.error) throw new Error(data.error || ("proxy " + res.status));
-  return data.text || "";
+  // 1回ぶんのリクエスト
+  const once = async () => {
+    const res = await fetch(AI_PROXY_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ system: system, messages: messages }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || ("proxy " + res.status));
+    return data.text || "";
+  };
+  try {
+    return await once();
+  } catch (e) {
+    // 一時的な通信エラーや500のときは、少し待って「1回だけ」自動で再試行する。
+    // それでもダメなら投げる（呼び出し側がローカル解説などにフォールバックする）。
+    await new Promise(r => setTimeout(r, 600));
+    return await once();
+  }
 }
 
 /* 先生キャラの名前は全フェーズ共通・変更不可。ここ1か所だけで定義する。 */
@@ -674,6 +685,68 @@ function localExplainMoji(p) {
   ].join("\n");
 }
 
+/* ----- 方程式 v1：1次方程式。答え（解 x）はすべて整数 ----- */
+/* 超基本：ax + b = c の形を無限生成（解は整数）。「…を解くと、x」の後にUIが「=」を付ける */
+function genKihon_houtei(level) {
+  const sol = rint(-6, 6);                         // 解 x（答え）
+  const co = rint(2, Math.min(2 + level, 5));      // 係数（2以上）
+  const bb = rint(-9, 9);                           // 定数
+  const c = co * sol + bb;                          // 右辺
+  const bCons = (bb === 0) ? "" : (bb > 0 ? ` + ${bb}` : ` - ${-bb}`);
+  return { q: `${co}x${bCons} = ${c} を解くと、x`, a: sol, kind: "超基本" };
+}
+
+/* 標準プール（両辺にx・括弧・負の係数。全問 解が方程式を満たすこと検算済み） */
+const HOUTEI = [
+  { q: "3x - 5 = 7 を解くと、x", a: 4 },
+  { q: "x + 6 = 2 を解くと、x", a: -4 },
+  { q: "4x + 7 = 3 を解くと、x", a: -1 },
+  { q: "x - 8 = -3 を解くと、x", a: 5 },
+  { q: "3x = -12 を解くと、x", a: -4 },
+  { q: "-2x + 1 = 7 を解くと、x", a: -3 },
+  { q: "10 - x = 3 を解くと、x", a: 7 },
+  { q: "6 = 2x を解くと、x", a: 3 },
+  { q: "2x + 1 = x + 5 を解くと、x", a: 4 },
+  { q: "5x - 3 = 2x + 9 を解くと、x", a: 4 },
+  { q: "2x - 9 = -x を解くと、x", a: 3 },
+  { q: "5x + 4 = 3x - 6 を解くと、x", a: -5 },
+  { q: "x + 9 = 4x を解くと、x", a: 3 },
+  { q: "7x - 2 = 5x + 8 を解くと、x", a: 5 },
+  { q: "4x - 1 = x + 8 を解くと、x", a: 3 },
+  { q: "3(x + 2) = 12 を解くと、x", a: 2 },
+  { q: "2(x - 1) = 6 を解くと、x", a: 4 },
+  { q: "3(x - 4) = -3 を解くと、x", a: 3 },
+];
+
+/* 応用：AIに方程式の文章題を作らせる（答えは整数） */
+const HOUTEI_OYOU_SYS =
+  "あなたは中学1年生（東京書籍・1次方程式）の数学問題を作る出題者です。" +
+  "文章から1次方程式を立てて解く文章題を1問だけ作ってください。答え（求める数）が必ず1つの整数になること。" +
+  "出力はJSONのみ。前置き・マークダウン・コードフェンス禁止。" +
+  'フォーマット: {"q":"問題文（短く）","a":整数,"choices":[4つの整数。aを必ず含む]}';
+
+/* AI解説（方程式用）。先生は数学共通の「マギ先生」 */
+const EXPLAIN_HOUTEI =
+  `あなたは中学1年生のための、やさしい数学の先生「${TEACHER}」です。` +
+  "数式を操る魔法使いで、眼鏡と杖を持っています。魔法学校の先生らしい言葉を少しだけ使います（使いすぎない）。" +
+  "解説スタイル：①短文で ②箇条書きは行頭に「・」だけ ③むずかしい漢字にはふりがな ④まず良いところを褒める ⑤絶対に責めない・否定しない。" +
+  "重要：マークダウン記号（** や * や # や ```）は絶対に使わない。" +
+  "1次方程式の単元。x を求める手順を中心に。" +
+  "ポイント：数を反対側へうつすとき符号が変わる『移項（いこう）』／x のついた項は左、数字は右に集める／さいごに x の係数（けいすう）で両辺を割る。" +
+  "答えそのものより『手順』を伝える。絵文字は1〜2個までOK。毎回みじかく。";
+
+/* 方程式のローカル解説フォールバック（電波が悪いとき用） */
+function localExplainHoutei(p) {
+  return [
+    "ナイスチャレンジ！👏 いっしょに見直そう。",
+    "・数を反対側へうつすと符号（ふごう）が変わるよ（移項）。",
+    "・x のついた項は左、数字は右に集めよう。",
+    "・さいごに x の係数（けいすう）で両辺を割るよ。",
+    `・答えは x = ${p.a} になるよ。`,
+    "もう一回いける！🌟",
+  ].join("\n");
+}
+
 /* 共通：標準プールからランダムに1問選ぶ */
 const genFromPool = (pool) => ({ ...pool[rint(0, pool.length - 1)], kind: "標準" });
 
@@ -692,6 +765,13 @@ const MATH_UNITS = {
     genKihon: genKihon_moji, pool: MOJI,
     genOyou: (lv) => genOyou(lv, MOJI_OYOU_SYS),
     explain: EXPLAIN_MOJI, localExplain: localExplainMoji,
+  },
+  houtei: {
+    name: "方程式", bossName: "バランス・ロード",
+    tokens: ["x", "2x", "=", "+3", "-5", "x=?", "7", "-x"],
+    genKihon: genKihon_houtei, pool: HOUTEI,
+    genOyou: (lv) => genOyou(lv, HOUTEI_OYOU_SYS),
+    explain: EXPLAIN_HOUTEI, localExplain: localExplainHoutei,
   },
 };
 /* 部屋の並び順（試練の間の上から）。i 番目 → 単元キー */
@@ -748,7 +828,7 @@ const STR = {
     rooms: [
       { name: "暗黒の数字の間", sub: "正負の数 / ボス：ダーク・ナンバー" },
       { name: "文字式の回廊", sub: "式の値（代入）/ ボス：シャドウ・レター" },
-      { name: "方程式の聖堂", sub: "Phase 2 で解放" },
+      { name: "方程式の聖堂", sub: "1次方程式 / ボス：バランス・ロード" },
     ],
     bossName: "ダーク・ナンバー",
     bossHP: "ボスHP",
@@ -1187,7 +1267,7 @@ function SubjectHome({ char, coins, nickname, onMath, onEnglish }) {
 function Home({ char, level, coins, nickname, onBoss, onBack }) {
   const [devOpen, setDevOpen] = useState(false);
   // 開放フラグだけコード側に残し、name/sub は辞書（t("rooms")）から取る
-  const roomOpen = [true, true, false];
+  const roomOpen = [true, true, true];
   const rooms = t("rooms").map((r, i) => ({ ...r, open: roomOpen[i] }));
   return (
     <div style={{ animation: "rino-pop .4s ease", position: "relative", minHeight: 520 }}>
