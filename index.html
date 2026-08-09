@@ -650,10 +650,83 @@ const ENGLISH_EXPLAIN_SYSTEM =
   "重要：マークダウン記号（** や * や # や ```）は絶対に使わない。" +
   "単元は be動詞（am / is / are）。主語による使い分け（I→am、You・複数→are、3人称単数→is）を、答えそのものより『見分け方』を中心に伝える。絵文字は1〜2個までOK。毎回みじかく。";
 
+/* ================= 国語（第1単元：漢字の読み書き）=================
+   ・例文はすべてアプリ用のオリジナル（教科書の本文・設問は使わない）。
+   ・4択のダミーは1問ずつ手で持たせる。他の問題から自動で借りると
+     「正解が2つある問題」ができてしまうため。
+   ・漢字10字は候補版。光村図書・中1の巻末一覧で確認して差し替える予定。 */
+const KANJI_DATA = [
+  { kanjiS: "ハンドルを握る。",           kanaS: "ハンドルをにぎる。",
+    yomi: "にぎる",   yomiNG: ["さぐる", "しばる", "ゆする"],
+    kaki: "握る",     kakiNG: ["振る", "折る", "掘る"] },
+  { kanjiS: "こわれやすい荷物を扱う。",   kanaS: "こわれやすい荷物をあつかう。",
+    yomi: "あつかう", yomiNG: ["あじわう", "うたがう", "ともなう"],
+    kaki: "扱う",     kakiNG: ["補う", "養う", "救う"] },
+  { kanjiS: "夕日が長い影をつくる。",     kanaS: "夕日が長いかげをつくる。",
+    yomi: "かげ",     yomiNG: ["かたち", "ひかり", "もよう"],
+    kaki: "影",       kakiNG: ["形", "景", "彩"] },
+  { kanjiS: "鋭い音が鳴りひびく。",       kanaS: "するどい音が鳴りひびく。",
+    yomi: "するどい", yomiNG: ["けわしい", "はげしい", "いさましい"],
+    kaki: "鋭い",     kakiNG: ["険しい", "激しい", "親しい"] },
+  { kanjiS: "山を越える。",               kanaS: "山をこえる。",
+    yomi: "こえる",   yomiNG: ["ささえる", "かかえる", "そなえる"],
+    kaki: "越える",   kakiNG: ["支える", "構える", "備える"] },
+  { kanjiS: "遠くに白い煙が見える。",     kanaS: "遠くに白いけむりが見える。",
+    yomi: "けむり",   yomiNG: ["ほこり", "みずうみ", "かみなり"],
+    kaki: "煙",       kakiNG: ["湯", "炎", "霧"] },
+  { kanjiS: "雨の日は服が汚れる。",       kanaS: "雨の日は服がよごれる。",
+    yomi: "よごれる", yomiNG: ["やぶれる", "みだれる", "たおれる"],
+    kaki: "汚れる",   kakiNG: ["破れる", "乱れる", "倒れる"] },
+  { kanjiS: "エレベーターのボタンを押す。", kanaS: "エレベーターのボタンをおす。",
+    yomi: "おす",     yomiNG: ["さす", "ほす", "たす"],
+    kaki: "押す",     kakiNG: ["指す", "干す", "足す"] },
+  { kanjiS: "森の奥へ進む。",             kanaS: "森のおくへ進む。",
+    yomi: "おく",     yomiNG: ["さき", "そば", "もと"],
+    kaki: "奥",       kakiNG: ["底", "裏", "端"] },
+  { kanjiS: "岩のうしろに隠れる。",       kanaS: "岩のうしろにかくれる。",
+    yomi: "かくれる", yomiNG: ["まぎれる", "くずれる", "わかれる"],
+    kaki: "隠れる",   kakiNG: ["崩れる", "紛れる", "別れる"] },
+];
+
+/* レベルで出題形式を変える：Lv1-2=読みのみ / Lv3+=読みと書きを混ぜる */
+function genKokugoProblem(level) {
+  const d = KANJI_DATA[rint(0, KANJI_DATA.length - 1)];
+  const kaki = level >= 3 && Math.random() < 0.5;
+
+  if (kaki) {
+    // 書き：かな書きの例文を見せて、正しい漢字を4択で選ぶ
+    return { type: "text", ui: "choice", kind: "書き", q: d.kanaS, a: d.kaki, choices: shuffle([d.kaki].concat(d.kakiNG)) };
+  }
+  // 読み：漢字入りの例文を見せて、正しい読みを4択で選ぶ
+  return { type: "text", ui: "choice", kind: "読み", q: d.kanjiS, a: d.yomi, choices: shuffle([d.yomi].concat(d.yomiNG)) };
+}
+
+/* 国語のローカル解説フォールバック（電波が悪いとき用） */
+function localExplainKokugo(p) {
+  return [
+    "ナイスチャレンジ！👏 いっしょに見直そう。",
+    "・漢字は「へん」と「つくり」に分けて見ると、意味のヒントが見つかるよ。",
+    "・送りがな（おくりがな）まで声に出して読んでみてね。",
+    "・にた形の漢字とくらべると、ちがいがはっきりするよ。",
+    `・答えは「${p.a}」だよ。`,
+    "もう一回いける！🌟",
+  ].join("\n");
+}
+
+/* 国語の先生（ソラ先生）の解説スタイル */
+const KOKUGO_TEACHER = "ソラ先生";
+const KOKUGO_EXPLAIN_SYSTEM =
+  `あなたは中学1年生のための、やさしい国語の先生「${KOKUGO_TEACHER}」です。` +
+  "言葉と物語をあやつる魔法使いで、巻物（まきもの）と筆（ふで）を持っています。" +
+  "解説スタイル：①短文で ②箇条書きは行頭に「・」だけ ③むずかしい漢字にはふりがな ④まず良いところを褒める ⑤絶対に責めない・否定しない。" +
+  "重要：マークダウン記号（** や * や # や ```）は絶対に使わない。" +
+  "単元は漢字の読み書き。答えそのものより『見分け方』を中心に伝える。部首（ぶしゅ）や へん・つくり の意味、送りがな（おくりがな）、にた形の漢字とのちがいに注目させる。絵文字は1〜2個までOK。毎回みじかく。";
+
 /* 科目ごとの設定（ボス名・浮遊トークン・先生・解説）をここ1か所で管理 */
 const SUBJECT_META = {
   math: { bossName: "ダーク・ナンバー", tokens: ["7", "-3", "5", "-8", "0", "-1", "9", "-4"], teacher: TEACHER, explain: EXPLAIN_SYSTEM, teacherImg: assetUrl(ASSETS.teachers.magi), emoji: "➗" },
   english: { bossName: "ミステイク・スペクター", tokens: ["A", "B", "is", "am", "are", "?", "the", "be"], teacher: ENGLISH_TEACHER, explain: ENGLISH_EXPLAIN_SYSTEM, teacherImg: assetUrl(ASSETS.teachers.rumi), emoji: "🔤" },
+  kokugo: { bossName: "サイレント・ワード", tokens: ["漢", "字", "音", "訓", "読", "書", "文", "語"], teacher: KOKUGO_TEACHER, explain: KOKUGO_EXPLAIN_SYSTEM, teacherImg: assetUrl(ASSETS.teachers.sora), emoji: "✍️" },
 };
 
 /* ===========================================================================
@@ -1056,7 +1129,7 @@ function Rinogical() {
   const [character, setCharacter] = useState(null);
   const [nickname, setNickname] = useState("");
   // coins は全科目共通。level/xp は科目ごと（数学・英語…）に分けて持つ
-  const [player, setPlayer] = useState({ coins: 0, subjects: { math: { level: 1, xp: 0 }, english: { level: 1, xp: 0 } } });
+  const [player, setPlayer] = useState({ coins: 0, subjects: { math: { level: 1, xp: 0 }, english: { level: 1, xp: 0 }, kokugo: { level: 1, xp: 0 } } });
   const [subject, setSubject] = useState("math"); // いまプレイ中の科目
   const [unit, setUnit] = useState("seifu");       // 数学のいまの単元（正負の数 / 文字式 …）
   const [battleReturn, setBattleReturn] = useState("trials"); // バトル後の戻り先
@@ -1096,11 +1169,13 @@ function Rinogical() {
           subjects = {
             math: data.subjects.math || { level: 1, xp: 0 },
             english: data.subjects.english || { level: 1, xp: 0 },
+            kokugo: data.subjects.kokugo || { level: 1, xp: 0 },
           };
         } else {
           subjects = {
             math: { level: data.level ?? 1, xp: data.xp ?? 0 },
             english: { level: 1, xp: 0 },
+            kokugo: { level: 1, xp: 0 },
           };
         }
         setPlayer({ coins: data.coins ?? 0, subjects });
@@ -1158,7 +1233,8 @@ function Rinogical() {
         {screen === "tutorial" && <Tutorial char={character} nickname={nickname} onStart={() => setScreen("home")} />}
         {screen === "home" && <SubjectHome char={character} coins={player.coins} nickname={nickname}
           onMath={() => { setSubject("math"); setScreen("trials"); }}
-          onEnglish={() => { setSubject("english"); setBattleReturn("home"); setScreen("battle"); }} />}
+          onEnglish={() => { setSubject("english"); setBattleReturn("home"); setScreen("battle"); }}
+          onKokugo={() => { setSubject("kokugo"); setBattleReturn("home"); setScreen("battle"); }} />}
         {screen === "trials" && <Home char={character} level={prog.level} coins={player.coins} nickname={nickname} onBoss={(i) => { setUnit(MATH_UNIT_KEYS[i] || "seifu"); setBattleReturn("trials"); setScreen("battle"); }} onBack={() => setScreen("home")} />}
         {screen === "battle" && (
           <Battle char={character} player={player} setPlayer={setPlayer} subjectKey={subject} unitKey={unit} prog={prog} nickname={nickname}
@@ -1384,6 +1460,8 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
     const lv = prog.level;
     if (subjectKey === "english") {
       p = genEnglishProblem(lv);
+    } else if (subjectKey === "kokugo") {
+      p = genKokugoProblem(lv);
     } else {
       const roll = Math.random();
       try {
@@ -1413,7 +1491,7 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
       convo.current.push({ role: "assistant", content: txt });
       setExplain(txt);
     } catch {
-      setExplain(subjectKey === "english" ? localExplainEn(problem) : (U ? U.localExplain(problem) : localExplain(problem)));
+      setExplain(subjectKey === "english" ? localExplainEn(problem) : subjectKey === "kokugo" ? localExplainKokugo(problem) : (U ? U.localExplain(problem) : localExplain(problem)));
     } finally { setExplaining(false); }
   }
 
@@ -1593,6 +1671,8 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
               onWhy={() => fetchExplain("「なんで？」と聞かれました。なぜその答えになるのか、考え方のステップを順番に、わかりやすく説明して。")}
               onEasier={() => fetchExplain(subjectKey === "english"
                 ? "「もっとかんたんに」と言われました。主語による be動詞の見分け方を、別の身近な言い方で、いちばんやさしく説明して。同じ説明のくり返しは避けて。"
+                : subjectKey === "kokugo"
+                ? "「もっとかんたんに」と言われました。その漢字の覚え方を、別の切り口（へん・つくりの意味、にた形の漢字とのくらべ方、送りがなの見分け方など）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。"
                 : "「もっとかんたんに」と言われました。これまでとは別の、身近なたとえ（温度計・エレベーターの階・おこづかいの貸し借りなど）を1つだけ使って、いちばんやさしく説明して。同じ説明のくり返しは避けて。")}
               onNext={nextProblem} />
           )}
