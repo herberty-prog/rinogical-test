@@ -1007,6 +1007,7 @@ const STR = {
     comingSoon: "準備中だよ！ もうすこし まってね 🌱",
     backToSubjects: "← 科目にもどる",
     arrangeHint: "ことばを ならべて 文を つくろう",
+    arrangeTrayHint: "下の カード を タップして ならべよう",
     clearBtn: "けす",
     rooms: [
       { name: "暗黒の数字の間", sub: "正負の数 / ボス：ダーク・ナンバー" },
@@ -1022,6 +1023,7 @@ const STR = {
     callingProblem: "魔法の問題を よびだし中…",
     attackHint: "正解で攻撃 / 不正解でダメージ",
     inputHint: "数字で答えてね（マイナスは ± ボタン）",
+    inputHintText: "英語で答えてね（スペルに気をつけて）",
     inputPlaceholder: "答えを入力",
     answerBtn: "こたえる",
     yourAnswer: "あなたの答え：",
@@ -1672,7 +1674,7 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
             <div>
               <div style={{ ...clay(C.bg2, false), minHeight: 52, padding: "10px 12px", marginBottom: 10, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", justifyContent: "center" }}>
                 {built.length === 0
-                  ? <span style={{ color: C.inkDim, fontWeight: 700, fontSize: 13 }}>{t("inputHint")}</span>
+                  ? <span style={{ color: C.inkDim, fontWeight: 700, fontSize: 13 }}>{t("arrangeTrayHint")}</span>
                   : built.map((ti, k) => (
                       <span key={k} style={{ ...clay(C.lav), padding: "6px 12px", fontWeight: 900, color: C.bg0, fontSize: 18 }}>{problem.tiles[ti]}</span>
                     ))}
@@ -1697,7 +1699,7 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
             <div>
               {phase !== "result" && (
                 <div style={{ fontSize: 12, color: C.inkDim, textAlign: "center", marginBottom: 8 }}>
-                  {t("inputHint")}
+                  {t(problem.type === "number" ? "inputHint" : "inputHintText")}
                 </div>
               )}
               <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
