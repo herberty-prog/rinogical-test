@@ -722,11 +722,80 @@ const KOKUGO_EXPLAIN_SYSTEM =
   "重要：マークダウン記号（** や * や # や ```）は絶対に使わない。" +
   "単元は漢字の読み書き。答えそのものより『見分け方』を中心に伝える。部首（ぶしゅ）や へん・つくり の意味、送りがな（おくりがな）、にた形の漢字とのちがいに注目させる。絵文字は1〜2個までOK。毎回みじかく。";
 
+/* ================= 理科（第1単元：植物のつくりとはたらき）=================
+   ・問題はすべてアプリ用のオリジナル（教科書の本文・設問は使わない）。
+   ・4択のダミーは1問ずつ手で持たせる。他の問題から自動で借りると
+     「正解が2つある問題」ができてしまうため。
+   ・選択肢は短くする。バトル画面は2列のボタン（文字も大きい）なので、
+     長い文を入れると折り返して読みにくくなる。
+   ・adv:true は発展。Lv1-2は基本のみ、Lv3以降で発展も混ざる。
+   ・why はオフライン時のローカル解説に使う一言（通信が切れても中身のある説明を出すため）。 */
+const RIKA_DATA = [
+  { q: "アブラナの花で、花粉（かふん）がつくられるところは？",
+    a: "やく", ng: ["柱頭", "子房", "がく"], adv: false,
+    why: "おしべの先の「やく」で花粉がつくられるよ。" },
+  { q: "受粉（じゅふん）したあと、子房（しぼう）は何になる？",
+    a: "果実", ng: ["種子", "花粉", "根"], adv: false,
+    why: "子房は果実になり、その中の胚珠が種子になるよ。" },
+  { q: "受粉したあと、胚珠（はいしゅ）は何になる？",
+    a: "種子", ng: ["果実", "子房", "がく"], adv: false,
+    why: "胚珠は種子になるよ。子房は果実になるので、ペアで覚えよう。" },
+  { q: "アブラナの花で、外側から2番目にあるつくりは？",
+    a: "花弁", ng: ["がく", "おしべ", "めしべ"], adv: false,
+    why: "外側から がく → 花弁 → おしべ → めしべ の順にならんでいるよ。" },
+  { q: "単子葉類（たんしようるい）の子葉（しよう）は何枚？",
+    a: "1枚", ng: ["2枚", "3枚", "4枚"], adv: false,
+    why: "「単」は1つという意味。子葉が1枚なら単子葉類、2枚なら双子葉類だよ。" },
+  { q: "胚珠が子房の中に包まれている植物のなかまは？",
+    a: "被子植物", ng: ["裸子植物", "シダ植物", "コケ植物"], adv: false,
+    why: "「被」はおおうという意味。子房が胚珠をおおっているよ。" },
+  { q: "マツのように、子房がなく胚珠がむき出しの植物のなかまは？",
+    a: "裸子植物", ng: ["被子植物", "シダ植物", "ソウ類"], adv: true,
+    why: "「裸」ははだかという意味。胚珠がむき出しになっているよ。" },
+  { q: "トウモロコシのような単子葉類の葉脈（ようみゃく）は？",
+    a: "平行脈", ng: ["網状脈", "輪状脈", "放射脈"], adv: true,
+    why: "単子葉類は平行脈、双子葉類は網状脈。子葉の枚数とセットで覚えよう。" },
+  { q: "ホウセンカのような双子葉類（そうしようるい）の根のつくりは？",
+    a: "主根と側根", ng: ["ひげ根", "根毛", "地下茎"], adv: true,
+    why: "双子葉類は太い主根と細い側根。単子葉類はひげ根だよ。" },
+  { q: "根の先の近くに生えている、細かい毛のようなつくりは？",
+    a: "根毛", ng: ["ひげ根", "側根", "柱頭"], adv: true,
+    why: "根毛があると根の表面積が大きくなり、水を吸いやすくなるよ。" },
+];
+
+/* レベルで出題範囲を変える：Lv1-2=基本のみ / Lv3+=発展も混ざる */
+function genRikaProblem(level) {
+  const pool = level >= 3 ? RIKA_DATA : RIKA_DATA.filter(d => !d.adv);
+  const d = pool[rint(0, pool.length - 1)];
+  return { type: "text", ui: "choice", kind: d.adv ? "発展" : "基本", q: d.q, a: d.a, choices: shuffle([d.a].concat(d.ng)), why: d.why };
+}
+
+/* 理科のローカル解説フォールバック（電波が悪いとき用） */
+function localExplainRika(p) {
+  return [
+    "ナイスチャレンジ！👏 いっしょに見直そう。",
+    "・" + (p.why || "図に書いて、名前と場所をむすびつけてみよう。"),
+    "・名前の漢字の意味を考えると、はたらきが思い出しやすいよ。",
+    `・答えは「${p.a}」だよ。`,
+    "もう一回いける！🌟",
+  ].join("\n");
+}
+
+/* 理科の先生（ミルス先生）の解説スタイル */
+const RIKA_TEACHER = "ミルス先生";
+const RIKA_EXPLAIN_SYSTEM =
+  `あなたは中学1年生のための、やさしい理科の先生「${RIKA_TEACHER}」です。` +
+  "ルーペと試験管（しけんかん）を持ち歩く、好奇心いっぱいの錬金術師（れんきんじゅつし）です。" +
+  "解説スタイル：①短文で ②箇条書きは行頭に「・」だけ ③むずかしい漢字にはふりがな ④まず良いところを褒める ⑤絶対に責めない・否定しない。" +
+  "重要：マークダウン記号（** や * や # や ```）は絶対に使わない。" +
+  "単元は植物のつくり（花のつくり、種子植物のなかま分け、根や葉のつくり）。答えそのものより『見分け方』を中心に伝える。名前の漢字の意味（被子＝おおう、裸子＝はだか、単＝1つ など）や、対になる用語（子房と果実、胚珠と種子）をセットで結びつけさせる。中学1年で習わない光合成や蒸散のくわしい話には立ち入らない。絵文字は1〜2個までOK。毎回みじかく。";
+
 /* 科目ごとの設定（ボス名・浮遊トークン・先生・解説）をここ1か所で管理 */
 const SUBJECT_META = {
   math: { bossName: "ダーク・ナンバー", tokens: ["7", "-3", "5", "-8", "0", "-1", "9", "-4"], teacher: TEACHER, explain: EXPLAIN_SYSTEM, teacherImg: assetUrl(ASSETS.teachers.magi), emoji: "➗" },
   english: { bossName: "ミステイク・スペクター", tokens: ["A", "B", "is", "am", "are", "?", "the", "be"], teacher: ENGLISH_TEACHER, explain: ENGLISH_EXPLAIN_SYSTEM, teacherImg: assetUrl(ASSETS.teachers.rumi), emoji: "🔤" },
   kokugo: { bossName: "サイレント・ワード", tokens: ["漢", "字", "音", "訓", "読", "書", "文", "語"], teacher: KOKUGO_TEACHER, explain: KOKUGO_EXPLAIN_SYSTEM, teacherImg: assetUrl(ASSETS.teachers.sora), emoji: "✍️" },
+  rika: { bossName: "ウィザリング・ブルーム", tokens: ["花", "葉", "根", "茎", "種", "実", "芽", "脈"], teacher: RIKA_TEACHER, explain: RIKA_EXPLAIN_SYSTEM, teacherImg: assetUrl(ASSETS.teachers.mils), emoji: "🔬" },
 };
 
 /* ===========================================================================
@@ -1129,7 +1198,7 @@ function Rinogical() {
   const [character, setCharacter] = useState(null);
   const [nickname, setNickname] = useState("");
   // coins は全科目共通。level/xp は科目ごと（数学・英語…）に分けて持つ
-  const [player, setPlayer] = useState({ coins: 0, subjects: { math: { level: 1, xp: 0 }, english: { level: 1, xp: 0 }, kokugo: { level: 1, xp: 0 } } });
+  const [player, setPlayer] = useState({ coins: 0, subjects: { math: { level: 1, xp: 0 }, english: { level: 1, xp: 0 }, kokugo: { level: 1, xp: 0 }, rika: { level: 1, xp: 0 } } });
   const [subject, setSubject] = useState("math"); // いまプレイ中の科目
   const [unit, setUnit] = useState("seifu");       // 数学のいまの単元（正負の数 / 文字式 …）
   const [battleReturn, setBattleReturn] = useState("trials"); // バトル後の戻り先
@@ -1170,12 +1239,14 @@ function Rinogical() {
             math: data.subjects.math || { level: 1, xp: 0 },
             english: data.subjects.english || { level: 1, xp: 0 },
             kokugo: data.subjects.kokugo || { level: 1, xp: 0 },
+            rika: data.subjects.rika || { level: 1, xp: 0 },
           };
         } else {
           subjects = {
             math: { level: data.level ?? 1, xp: data.xp ?? 0 },
             english: { level: 1, xp: 0 },
             kokugo: { level: 1, xp: 0 },
+            rika: { level: 1, xp: 0 },
           };
         }
         setPlayer({ coins: data.coins ?? 0, subjects });
@@ -1234,7 +1305,8 @@ function Rinogical() {
         {screen === "home" && <SubjectHome char={character} coins={player.coins} nickname={nickname}
           onMath={() => { setSubject("math"); setScreen("trials"); }}
           onEnglish={() => { setSubject("english"); setBattleReturn("home"); setScreen("battle"); }}
-          onKokugo={() => { setSubject("kokugo"); setBattleReturn("home"); setScreen("battle"); }} />}
+          onKokugo={() => { setSubject("kokugo"); setBattleReturn("home"); setScreen("battle"); }}
+          onRika={() => { setSubject("rika"); setBattleReturn("home"); setScreen("battle"); }} />}
         {screen === "trials" && <Home char={character} level={prog.level} coins={player.coins} nickname={nickname} onBoss={(i) => { setUnit(MATH_UNIT_KEYS[i] || "seifu"); setBattleReturn("trials"); setScreen("battle"); }} onBack={() => setScreen("home")} />}
         {screen === "battle" && (
           <Battle char={character} player={player} setPlayer={setPlayer} subjectKey={subject} unitKey={unit} prog={prog} nickname={nickname}
@@ -1462,6 +1534,8 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
       p = genEnglishProblem(lv);
     } else if (subjectKey === "kokugo") {
       p = genKokugoProblem(lv);
+    } else if (subjectKey === "rika") {
+      p = genRikaProblem(lv);
     } else {
       const roll = Math.random();
       try {
@@ -1491,7 +1565,7 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
       convo.current.push({ role: "assistant", content: txt });
       setExplain(txt);
     } catch {
-      setExplain(subjectKey === "english" ? localExplainEn(problem) : subjectKey === "kokugo" ? localExplainKokugo(problem) : (U ? U.localExplain(problem) : localExplain(problem)));
+      setExplain(subjectKey === "english" ? localExplainEn(problem) : subjectKey === "kokugo" ? localExplainKokugo(problem) : subjectKey === "rika" ? localExplainRika(problem) : (U ? U.localExplain(problem) : localExplain(problem)));
     } finally { setExplaining(false); }
   }
 
@@ -1673,6 +1747,8 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
                 ? "「もっとかんたんに」と言われました。主語による be動詞の見分け方を、別の身近な言い方で、いちばんやさしく説明して。同じ説明のくり返しは避けて。"
                 : subjectKey === "kokugo"
                 ? "「もっとかんたんに」と言われました。その漢字の覚え方を、別の切り口（へん・つくりの意味、にた形の漢字とのくらべ方、送りがなの見分け方など）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。"
+                : subjectKey === "rika"
+                ? "「もっとかんたんに」と言われました。その用語の覚え方を、別の切り口（名前の漢字の意味、対になる用語とのセット、身近な植物での例えなど）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。中学1年で習わない光合成や蒸散のくわしい話には立ち入らないで。"
                 : "「もっとかんたんに」と言われました。これまでとは別の、身近なたとえ（温度計・エレベーターの階・おこづかいの貸し借りなど）を1つだけ使って、いちばんやさしく説明して。同じ説明のくり返しは避けて。")}
               onNext={nextProblem} />
           )}
