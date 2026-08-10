@@ -693,12 +693,13 @@ function genKokugoProblem(level) {
   const d = KANJI_DATA[rint(0, KANJI_DATA.length - 1)];
   const kaki = level >= 3 && Math.random() < 0.5;
 
+  // mark は「問題文の中で目立たせる部分」。答えそのものではなく、答える対象のほうを指す。
   if (kaki) {
     // 書き：かな書きの例文を見せて、正しい漢字を4択で選ぶ
-    return { type: "text", ui: "choice", kind: "書き", q: d.kanaS, a: d.kaki, choices: shuffle([d.kaki].concat(d.kakiNG)) };
+    return { type: "text", ui: "choice", kind: "書き", q: d.kanaS, a: d.kaki, choices: shuffle([d.kaki].concat(d.kakiNG)), mark: d.yomi };
   }
   // 読み：漢字入りの例文を見せて、正しい読みを4択で選ぶ
-  return { type: "text", ui: "choice", kind: "読み", q: d.kanjiS, a: d.yomi, choices: shuffle([d.yomi].concat(d.yomiNG)) };
+  return { type: "text", ui: "choice", kind: "読み", q: d.kanjiS, a: d.yomi, choices: shuffle([d.yomi].concat(d.yomiNG)), mark: d.kaki };
 }
 
 /* 国語のローカル解説フォールバック（電波が悪いとき用） */
@@ -1507,6 +1508,22 @@ function Home({ char, level, coins, nickname, onBoss, onBack }) {
 /* ---------- バトル ---------- */
 const BOSS_HP = 100, PLAYER_HP = 100, HIT_DMG = 25, TAKE_DMG = 20;
 
+/* 問題文の中の「答える対象の言葉」だけを目立たせる表示部品。
+   ・mark を持つのは今のところ国語だけ。数学・英語・理科は mark が無いので、
+     下の if で全文をそのまま返す＝表示はこれまでとまったく同じになる。
+   ・mark が文中に見つからないときも全文表示に戻す。文章が欠けることは起きない。 */
+function MarkedText({ text, mark }) {
+  const i = mark ? String(text).indexOf(mark) : -1;
+  if (i < 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, i)}
+      <span style={{ color: C.gold, borderBottom: `3px solid ${C.gold}`, padding: "0 2px" }}>{mark}</span>
+      {text.slice(i + mark.length)}
+    </>
+  );
+}
+
 function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, onWin, onHome }) {
   // 数学のときは単元（正負の数 / 文字式 …）の設定 U を読む。英語のときは U=null。
   const U = subjectKey === "math" ? (MATH_UNITS[unitKey] || MATH_UNITS.seifu) : null;
@@ -1668,7 +1685,7 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
             <span style={{ fontSize: 12, color: C.inkDim }}>{t("attackHint")}</span>
           </div>
           <div style={{ textAlign: "center", fontSize: problem.type === "number" ? 28 : 22, fontWeight: 900, margin: "10px 0 18px", letterSpacing: problem.type === "number" ? 1 : 0 }}>
-            {mode === "arrange" ? t("arrangeHint") : <>{problem.q}{(problem.type === "number" && problem.kind !== "応用") ? " =" : ""}</>}
+            {mode === "arrange" ? t("arrangeHint") : <><MarkedText text={problem.q} mark={problem.mark} />{(problem.type === "number" && problem.kind !== "応用") ? " =" : ""}</>}
           </div>
           {mode === "arrange" ? (
             <div>
