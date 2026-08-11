@@ -791,12 +791,85 @@ const RIKA_EXPLAIN_SYSTEM =
   "重要：マークダウン記号（** や * や # や ```）は絶対に使わない。" +
   "単元は植物のつくり（花のつくり、種子植物のなかま分け、根や葉のつくり）。答えそのものより『見分け方』を中心に伝える。名前の漢字の意味（被子＝おおう、裸子＝はだか、単＝1つ など）や、対になる用語（子房と果実、胚珠と種子）をセットで結びつけさせる。中学1年で習わない光合成や蒸散のくわしい話には立ち入らない。絵文字は1〜2個までOK。毎回みじかく。";
 
+/* ================= 社会・地理（第1単元：世界の姿）=================
+   ・問題はすべてアプリ用のオリジナル（教科書の本文・設問は使わない）。
+   ・4択のダミーは1問ずつ手で持たせる。他の問題から自動で借りると
+     「正解が2つある問題」ができてしまうため。
+   ・選択肢は6文字以内。バトル画面は2列のボタン（文字も大きい）なので、
+     長い語句を入れると折り返して読みにくくなる。
+     ※「オーストラリア」は7文字なので、選択肢には使わない。
+   ・ダミーは「まぎらわしいが確実に不正解」であること。
+     例：本初子午線はフランスも通るので、「0度の線が通る国は？」という
+     聞き方はしない（正解が2つになる）。天文台があった国を問う形にしてある。
+   ・adv:true は発展。Lv1-2は基本のみ、Lv3以降で発展も混ざる。
+   ・why はオフライン時のローカル解説に使う一言。 */
+const SHAKAI_DATA = [
+  { q: "世界で最も大きい大陸は？",
+    a: "ユーラシア", ng: ["アフリカ", "北アメリカ", "南極"], adv: false,
+    why: "ユーラシア大陸はアジアとヨーロッパを合わせた、いちばん大きい大陸だよ。" },
+  { q: "六大陸のうち、人がふだん住んでいないのは？",
+    a: "南極", ng: ["アフリカ", "ユーラシア", "南アメリカ"], adv: false,
+    why: "南極大陸には国も定住する人もなく、観測（かんそく）の基地があるだけだよ。" },
+  { q: "世界で最も大きい海洋は？",
+    a: "太平洋", ng: ["大西洋", "インド洋", "日本海"], adv: false,
+    why: "三大洋のうち太平洋がいちばん広いよ。日本の東側に広がっているね。" },
+  { q: "三大洋にふくまれないのは？",
+    a: "地中海", ng: ["太平洋", "大西洋", "インド洋"], adv: false,
+    why: "三大洋は太平洋・大西洋・インド洋の3つ。地中海はふくまれないよ。" },
+  { q: "地球の表面の、陸地と海洋のおよその割合は？",
+    a: "3対7", ng: ["7対3", "5対5", "4対6"], adv: false,
+    why: "陸地が約3割、海洋が約7割。「水の惑星」と呼ばれる理由だよ。" },
+  { q: "緯度0度の線を何という？",
+    a: "赤道", ng: ["経線", "本初子午線", "日付変更線"], adv: false,
+    why: "赤道が緯度0度。ここから南北にそれぞれ90度まで数えるよ。" },
+  { q: "経度0度の線を何という？",
+    a: "本初子午線", ng: ["赤道", "緯線", "回帰線"], adv: true,
+    why: "本初子午線が経度0度。ここから東西にそれぞれ180度まで数えるよ。" },
+  { q: "経度0度のもとになった天文台があった国は？",
+    a: "イギリス", ng: ["フランス", "アメリカ", "エジプト"], adv: true,
+    why: "ロンドンにあった旧グリニッジ天文台が、経度のはかり始めの基準になったよ。" },
+  { q: "緯度は最大で何度まである？",
+    a: "90度", ng: ["45度", "180度", "360度"], adv: true,
+    why: "緯度は赤道の0度から北極・南極の90度まで。経度は180度までなので混同しないでね。" },
+  { q: "赤道が通っている国は？",
+    a: "ケニア", ng: ["日本", "イタリア", "カナダ"], adv: true,
+    why: "ケニアは赤道が通る国。ほかにブラジルやインドネシアも通っているよ。" },
+];
+
+/* レベルで出題範囲を変える：Lv1-2=基本のみ / Lv3+=発展も混ざる */
+function genShakaiProblem(level) {
+  const pool = level >= 3 ? SHAKAI_DATA : SHAKAI_DATA.filter(d => !d.adv);
+  const d = pool[rint(0, pool.length - 1)];
+  return { type: "text", ui: "choice", kind: d.adv ? "発展" : "基本", q: d.q, a: d.a, choices: shuffle([d.a].concat(d.ng)), why: d.why };
+}
+
+/* 社会のローカル解説フォールバック（電波が悪いとき用） */
+function localExplainShakai(p) {
+  return [
+    "ナイスチャレンジ！👏 いっしょに見直そう。",
+    "・" + (p.why || "地図や地球儀（ちきゅうぎ）で場所をたしかめてみよう。"),
+    "・言葉の意味から考えると、思い出しやすくなるよ。",
+    `・答えは「${p.a}」だよ。`,
+    "もう一回いける！🌟",
+  ].join("\n");
+}
+
+/* 社会の先生（クロス先生）の解説スタイル */
+const SHAKAI_TEACHER = "クロス先生";
+const SHAKAI_EXPLAIN_SYSTEM =
+  `あなたは中学1年生のための、やさしい社会の先生「${SHAKAI_TEACHER}」です。` +
+  "古い地図と羅針盤（らしんばん）を持ち歩く、世界をめぐる旅の案内人です。" +
+  "解説スタイル：①短文で ②箇条書きは行頭に「・」だけ ③むずかしい漢字にはふりがな ④まず良いところを褒める ⑤絶対に責めない・否定しない。" +
+  "重要：マークダウン記号（** や * や # や ```）は絶対に使わない。" +
+  "単元は地理の「世界の姿」（六大陸と三大洋、陸地と海洋の割合、緯度と経度）。答えそのものより『覚え方・見分け方』を中心に伝える。言葉の意味（赤道、本初子午線＝はかり始めの線 など）や、対になる知識（緯度は90度まで／経度は180度まで、赤道と本初子午線）をセットで結びつけさせる。地球儀や地図を思いうかべさせる言い方をする。政治や歴史の話には立ち入らない。絵文字は1〜2個までOK。毎回みじかく。";
+
 /* 科目ごとの設定（ボス名・浮遊トークン・先生・解説）をここ1か所で管理 */
 const SUBJECT_META = {
   math: { bossName: "ダーク・ナンバー", tokens: ["7", "-3", "5", "-8", "0", "-1", "9", "-4"], teacher: TEACHER, explain: EXPLAIN_SYSTEM, teacherImg: assetUrl(ASSETS.teachers.magi), emoji: "➗" },
   english: { bossName: "ミステイク・スペクター", tokens: ["A", "B", "is", "am", "are", "?", "the", "be"], teacher: ENGLISH_TEACHER, explain: ENGLISH_EXPLAIN_SYSTEM, teacherImg: assetUrl(ASSETS.teachers.rumi), emoji: "🔤" },
   kokugo: { bossName: "サイレント・ワード", tokens: ["漢", "字", "音", "訓", "読", "書", "文", "語"], teacher: KOKUGO_TEACHER, explain: KOKUGO_EXPLAIN_SYSTEM, teacherImg: assetUrl(ASSETS.teachers.sora), emoji: "✍️" },
   rika: { bossName: "ウィザリング・ブルーム", tokens: ["花", "葉", "根", "茎", "種", "実", "芽", "脈"], teacher: RIKA_TEACHER, explain: RIKA_EXPLAIN_SYSTEM, teacherImg: assetUrl(ASSETS.teachers.mils), emoji: "🔬" },
+  shakai: { bossName: "ロスト・メリディアン", tokens: ["緯", "経", "度", "州", "海", "陸", "地", "球"], teacher: SHAKAI_TEACHER, explain: SHAKAI_EXPLAIN_SYSTEM, teacherImg: assetUrl(ASSETS.teachers.kros), emoji: "🌏" },
 };
 
 /* ===========================================================================
@@ -1201,7 +1274,7 @@ function Rinogical() {
   const [character, setCharacter] = useState(null);
   const [nickname, setNickname] = useState("");
   // coins は全科目共通。level/xp は科目ごと（数学・英語…）に分けて持つ
-  const [player, setPlayer] = useState({ coins: 0, subjects: { math: { level: 1, xp: 0 }, english: { level: 1, xp: 0 }, kokugo: { level: 1, xp: 0 }, rika: { level: 1, xp: 0 } } });
+  const [player, setPlayer] = useState({ coins: 0, subjects: { math: { level: 1, xp: 0 }, english: { level: 1, xp: 0 }, kokugo: { level: 1, xp: 0 }, rika: { level: 1, xp: 0 }, shakai: { level: 1, xp: 0 } } });
   const [subject, setSubject] = useState("math"); // いまプレイ中の科目
   const [unit, setUnit] = useState("seifu");       // 数学のいまの単元（正負の数 / 文字式 …）
   const [battleReturn, setBattleReturn] = useState("trials"); // バトル後の戻り先
@@ -1243,6 +1316,7 @@ function Rinogical() {
             english: data.subjects.english || { level: 1, xp: 0 },
             kokugo: data.subjects.kokugo || { level: 1, xp: 0 },
             rika: data.subjects.rika || { level: 1, xp: 0 },
+            shakai: data.subjects.shakai || { level: 1, xp: 0 },
           };
         } else {
           subjects = {
@@ -1250,6 +1324,7 @@ function Rinogical() {
             english: { level: 1, xp: 0 },
             kokugo: { level: 1, xp: 0 },
             rika: { level: 1, xp: 0 },
+            shakai: { level: 1, xp: 0 },
           };
         }
         setPlayer({ coins: data.coins ?? 0, subjects });
@@ -1309,7 +1384,8 @@ function Rinogical() {
           onMath={() => { setSubject("math"); setScreen("trials"); }}
           onEnglish={() => { setSubject("english"); setBattleReturn("home"); setScreen("battle"); }}
           onKokugo={() => { setSubject("kokugo"); setBattleReturn("home"); setScreen("battle"); }}
-          onRika={() => { setSubject("rika"); setBattleReturn("home"); setScreen("battle"); }} />}
+          onRika={() => { setSubject("rika"); setBattleReturn("home"); setScreen("battle"); }}
+          onShakai={() => { setSubject("shakai"); setBattleReturn("home"); setScreen("battle"); }} />}
         {screen === "trials" && <Home char={character} level={prog.level} coins={player.coins} nickname={nickname} onBoss={(i) => { setUnit(MATH_UNIT_KEYS[i] || "seifu"); setBattleReturn("trials"); setScreen("battle"); }} onBack={() => setScreen("home")} />}
         {screen === "battle" && (
           <Battle char={character} player={player} setPlayer={setPlayer} subjectKey={subject} unitKey={unit} prog={prog} nickname={nickname}
@@ -1555,6 +1631,8 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
       p = genKokugoProblem(lv);
     } else if (subjectKey === "rika") {
       p = genRikaProblem(lv);
+    } else if (subjectKey === "shakai") {
+      p = genShakaiProblem(lv);
     } else {
       const roll = Math.random();
       try {
@@ -1584,7 +1662,7 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
       convo.current.push({ role: "assistant", content: txt });
       setExplain(txt);
     } catch {
-      setExplain(subjectKey === "english" ? localExplainEn(problem) : subjectKey === "kokugo" ? localExplainKokugo(problem) : subjectKey === "rika" ? localExplainRika(problem) : (U ? U.localExplain(problem) : localExplain(problem)));
+      setExplain(subjectKey === "english" ? localExplainEn(problem) : subjectKey === "kokugo" ? localExplainKokugo(problem) : subjectKey === "rika" ? localExplainRika(problem) : subjectKey === "shakai" ? localExplainShakai(problem) : (U ? U.localExplain(problem) : localExplain(problem)));
     } finally { setExplaining(false); }
   }
 
@@ -1768,6 +1846,8 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
                 ? "「もっとかんたんに」と言われました。その漢字の覚え方を、別の切り口（へん・つくりの意味、にた形の漢字とのくらべ方、送りがなの見分け方など）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。"
                 : subjectKey === "rika"
                 ? "「もっとかんたんに」と言われました。その用語の覚え方を、別の切り口（名前の漢字の意味、対になる用語とのセット、身近な植物での例えなど）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。中学1年で習わない光合成や蒸散のくわしい話には立ち入らないで。"
+                : subjectKey === "shakai"
+                ? "「もっとかんたんに」と言われました。その用語の覚え方を、別の切り口（言葉の意味、地球儀や地図でのイメージ、対になる知識とのセットなど）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。政治や歴史の話には立ち入らないで。"
                 : "「もっとかんたんに」と言われました。これまでとは別の、身近なたとえ（温度計・エレベーターの階・おこづかいの貸し借りなど）を1つだけ使って、いちばんやさしく説明して。同じ説明のくり返しは避けて。")}
               onNext={nextProblem} />
           )}
