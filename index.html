@@ -1488,12 +1488,12 @@ function TeacherIcon({ src, emoji, size = 50, dim = false }) {
 }
 
 /* ---------- 科目をえらぶ（Phase2 ホーム）---------- */
-function SubjectHome({ char, coins, nickname, onMath, onEnglish, onKokugo, onRika }) {
+function SubjectHome({ char, coins, nickname, onMath, onEnglish, onKokugo, onRika, onShakai }) {
   const [soon, setSoon] = useState(false);
   const emojis = ["➗", "🔤", "✍️", "🔬", "🌏"];
   const teacherIds = ["magi", "rumi", "sora", "mils", "kros"];
-  const open = [true, true, true, true, false]; // 数学・英語・国語・理科を開放（他は準備中）
-  const handlers = [onMath, onEnglish, onKokugo, onRika];
+  const open = [true, true, true, true, true]; // 数学・英語・国語・理科・社会を開放
+  const handlers = [onMath, onEnglish, onKokugo, onRika, onShakai];
   const subs = t("subjects").map((s, i) => ({
     ...s, emoji: emojis[i], open: open[i],
     teacherImg: assetUrl(ASSETS.teachers[teacherIds[i]]),
