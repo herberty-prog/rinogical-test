@@ -1,0 +1,13 @@
+{
+  "name": "rinogical",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Rinogical（りのじかる）— ビルド用の設定。アプリ本体は src/ と index.html です。",
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node build.mjs --check-only"
+  },
+  "devDependencies": {
+    "@babel/standalone": "7.24.7"
+  }
+}
