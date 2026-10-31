@@ -116,7 +116,7 @@
 | `37_math_houtei.jsx` | 方程式ひとそろい |
 | `38_math_units.jsx` ★ | `genFromPool` / `MATH_UNITS` / `MATH_UNIT_KEYS` |
 | `40_i18n.jsx` | `LANG` / `STR`（辞書）/ `t()` ← ①の作業はここが中心。案内文は用途ごとに別キー（`inputHint`＝数値入力／`inputHintText`＝文字入力／`arrangeHint`＝ならべかえの見出し／`arrangeTrayHint`＝札を置く枠が空のとき）。**1本にまとめ直さないこと** |
-| `45_dev_panel.jsx` | `DEV_PANEL_ENABLED` / `PROGRESS` / `DevPanel` |
+| `45_dev_panel.jsx` | `DEV_PANEL_ENABLED` / `PROGRESS` / `DeviceTransfer`（セーブの引き継ぎ：端末IDの表示・コピー・切り替え）/ `DevPanel`。⚠ セーブ本体はFirestoreの `users/{端末ID}`、端末IDは端末のlocalStorage（`rino_device_id`）にだけある。**ホーム画面のアイコンを消すと端末IDが消えて新規扱いになる**（2026-10-31に実際に発生）。戻すにはFirebaseコンソールで元のIDを探し、devパネルの「セーブの引き継ぎ」に貼る。`DEV_PANEL_ENABLED` を false にするとこの機能も消えるので、そのときは別の場所へ移すこと |
 | `50_hud.jsx` | `HUD` / `Pill` / `Btn` |
 | `60_app.jsx` | `Rinogical`（メイン。画面の出し分け・セーブ処理）**`export default` はここ1行だけ**（ビルド時に自動で外れる） |
 | `70_screen_start.jsx` | `Loading` / `CHARACTERS` / `CharacterSelect` / `NameInput` / `Tutorial` |

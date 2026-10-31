@@ -69,6 +69,48 @@ const PROGRESS = [
   ]},
 ];
 
+/* セーブの引き継ぎ：セーブはFirebaseの users/{端末ID} にあり、端末IDはこの端末のlocalStorageにだけある。
+   ホーム画面のアイコンを消すと端末IDが消えて新規扱いになるため、番号の確認と切り替えをここでできるようにする。
+   iOSのホーム画面アプリでは window.confirm が効かないことがあるので、2回タップで確定する。 */
+function DeviceTransfer() {
+  const cur = getDeviceId();
+  const [v, setV] = useState("");
+  const [msg, setMsg] = useState("");
+  const [armed, setArmed] = useState(false);
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(cur); setMsg("今の番号をコピーしました。メモ帳などに保存しておいてください"); }
+    catch (e) { setMsg("コピーできませんでした。番号を長押しして選んでください"); }
+  };
+  const apply = () => {
+    const id = v.trim();
+    if (!/^dev-[0-9a-z-]{8,}$/i.test(id)) { setMsg("番号の形がちがいます。dev- で始まる番号をそのまま貼り付けてください"); setArmed(false); return; }
+    if (id === cur) { setMsg("今と同じ番号です"); setArmed(false); return; }
+    if (!armed) { setArmed(true); setMsg("もう一度押すと切り替えて再起動します（今のセーブは使われなくなります）"); setTimeout(() => setArmed(false), 5000); return; }
+    try { localStorage.setItem("rino_device_id", id); }
+    catch (e) { setMsg("保存できませんでした"); return; }
+    location.reload();
+  };
+  const box = { background: "#1b1828", border: "1px solid #34304a", borderRadius: 12, padding: 12, marginBottom: 14 };
+  const btn = { border: "none", borderRadius: 8, padding: "7px 12px", fontWeight: 800, cursor: "pointer", fontSize: 12 };
+  return (
+    <div style={box}>
+      <div style={{ fontWeight: 800, color: "#ffd56b", fontSize: 13, marginBottom: 6 }}>セーブの引き継ぎ</div>
+      <div style={{ fontSize: 11, color: "#8a83a8", marginBottom: 4 }}>この端末の番号（控えておけばアイコンを消しても戻せます）</div>
+      <div style={{ fontSize: 11, color: "#cfc7e6", wordBreak: "break-all", userSelect: "all", WebkitUserSelect: "all", marginBottom: 6 }}>{cur}</div>
+      <button onClick={copy} style={{ ...btn, background: "#2a2740", color: "#cfc7e6", marginBottom: 10 }}>番号をコピー</button>
+      <div style={{ fontSize: 11, color: "#8a83a8", marginBottom: 4 }}>前の番号に切り替える</div>
+      <input value={v} onChange={e => { setV(e.target.value); setArmed(false); }} placeholder="dev-xxxxxxxx-xxxx-..."
+        autoCapitalize="off" autoCorrect="off" spellCheck={false}
+        style={{ width: "100%", boxSizing: "border-box", background: "#0e0c16", color: "#cfc7e6", border: "1px solid #34304a",
+          borderRadius: 8, padding: "8px 10px", fontSize: 12, marginBottom: 8, fontFamily: "inherit" }} />
+      <button onClick={apply} style={{ ...btn, background: armed ? "#e8a33a" : "#8be9c0", color: "#12101c" }}>
+        {armed ? "もう一度押して確定" : "この番号に切り替える"}
+      </button>
+      {msg && <div style={{ fontSize: 11, color: "#ffd56b", marginTop: 8, lineHeight: 1.5 }}>{msg}</div>}
+    </div>
+  );
+}
+
 function DevPanel({ onClose }) {
   const allItems = PROGRESS.flatMap(p => p.items);
   const doneAll = allItems.filter(i => i.done).length;
@@ -84,6 +126,7 @@ function DevPanel({ onClose }) {
             padding: "5px 12px", fontWeight: 800, cursor: "pointer", fontSize: 13 }}>閉じる ✕</button>
         </div>
         <div style={{ fontSize: 12, color: "#8a83a8", marginBottom: 12 }}>全体 {doneAll}/{allItems.length} 完了</div>
+        <DeviceTransfer />
         {PROGRESS.map((p, pi) => {
           const d = p.items.filter(i => i.done).length;
           return (
