@@ -89,13 +89,15 @@
 
 ## 着手前の注意（セキュリティ）
 - **Firestore のルールが現在「誰でも読み書き可」の開発用のまま**。本番で実際に使う前に、匿名認証を入れてルールをロックダウンする。これは Phase を進める前提条件。
+  - **進行中（2026-11-02〜・C方式）**：①匿名ログイン＋自動引っ越し【済・テスト版】②メール＋パスワードの登録／ログイン画面【未】③本人がFirebaseで「匿名」「メール/パスワード」を有効化【未】④引き継ぎ（本人の端末）と、娘の端末で一度起動してセーブを uid 側へ移す【未】⑤ルールを `match /users/{uid} { allow read, write: if request.auth != null && request.auth.uid == uid; }` に切り替え【未】
+  - ⚠ **ルールを切り替えるのは④が終わってから。** 切り替え後は端末ID側（`users/dev-…`）が読めなくなり、引き継ぎも自動引っ越しも効かなくなる。
 
 ## `src/` の中身（31ファイル・つなぐ順）
 | ファイル | 中身 |
 |---|---|
 | `00_header.jsx` | import 2行＋冒頭コメント。**import を書いてよいのはここだけ** |
 | `10_theme.jsx` | `C`（配色パレット）/ `clay()` |
-| `11_firebase.jsx` | セーブ一式（`FIREBASE_CONFIG` 〜 `saveUserData`） |
+| `11_firebase.jsx` | セーブ一式（`FIREBASE_CONFIG` 〜 `saveUserData`）＋ログイン（`initAuth` / `setAuthUser` / `loadSaveData`）。**2026-11〜 C方式**：匿名ログインで始め、あとでメール＋パスワードをひも付ける。セーブ先は `users/{uid}`。ログインできないとき（Firebase側で未有効など）は従来どおり `users/{端末ID}`。初回は端末ID側のセーブを uid 側へ自動コピー（端末ID側は消さない）。devパネルの引き継ぎで番号を切り替えると `rino_force_migrate` が立ち、次回起動時にその端末IDのセーブで uid 側を上書きする |
 | `12_keyframes.jsx` | `Keyframes`（CSSアニメ定義） |
 | `13_assets.jsx` | `ASSET_BASE` / `assetUrl` / `ASSETS` / `LOTTIE` |
 | `20_lottie_view.jsx` | `LottieView` |

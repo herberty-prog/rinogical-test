@@ -86,7 +86,7 @@ function DeviceTransfer() {
     if (!/^dev-[0-9a-z-]{8,}$/i.test(id)) { setMsg("番号の形がちがいます。dev- で始まる番号をそのまま貼り付けてください"); setArmed(false); return; }
     if (id === cur) { setMsg("今と同じ番号です"); setArmed(false); return; }
     if (!armed) { setArmed(true); setMsg("もう一度押すと切り替えて再起動します（今のセーブは使われなくなります）"); setTimeout(() => setArmed(false), 5000); return; }
-    try { localStorage.setItem("rino_device_id", id); }
+    try { localStorage.setItem("rino_device_id", id); localStorage.setItem("rino_force_migrate", "1"); }
     catch (e) { setMsg("保存できませんでした"); return; }
     location.reload();
   };

@@ -29,9 +29,8 @@ export default function Rinogical() {
     (async () => {
       const sleep = new Promise(r => setTimeout(r, 1300)); // ローディング演出の最低表示時間
       await initFirebase();
-      const id = getDeviceId();
-      deviceIdRef.current = id;
-      const data = await loadUserData(id);
+      const { key, data } = await loadSaveData(); // ログインできればuid、できなければ端末IDに保存
+      deviceIdRef.current = key;
       await sleep;
       if (!alive) return;
       if (data && data.nickname) {
