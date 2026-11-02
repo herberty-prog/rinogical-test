@@ -111,6 +111,62 @@ function DeviceTransfer() {
   );
 }
 
+/* アカウント（親用）：匿名セーブにメール＋パスワードを登録しておくと、アイコンを消しても・別のiPhoneでも同じセーブに戻れる。
+   ⚠ いまはdevパネルの中にある。DEV_PANEL_ENABLED を false にする前に、親が使える場所へ移すこと */
+function AccountBox() {
+  const [, force] = useState(0);
+  const [email, setEmail] = useState("");
+  const [pw, setPw] = useState("");
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [armed, setArmed] = useState(false);
+  const linked = fb.uid && !fb.isAnonymous;
+  const status = !fb.uid ? "ログインしていません（Firebaseの設定待ち。今は端末IDで保存中）"
+    : linked ? "登録済み：" + fb.email : "匿名でログイン中（メール未登録）";
+  const check = () => {
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) { setMsg("メールアドレスの形がちがいます"); return false; }
+    if (pw.length < 6) { setMsg("パスワードは6文字以上にしてください"); return false; }
+    return true;
+  };
+  const doRegister = async () => {
+    if (!check()) return;
+    setBusy(true); setMsg("");
+    try { await registerEmail(email, pw); setPw(""); setMsg("登録しました。このメールとパスワードを忘れないように控えてください"); force(n => n + 1); }
+    catch (e) { setMsg(authErrorText(e)); }
+    setBusy(false);
+  };
+  const doLogin = async () => {
+    if (!check()) return;
+    if (!armed) { setArmed(true); setMsg("もう一度押すとログインして再起動します（いまのセーブからそのメールのセーブに切り替わります）"); setTimeout(() => setArmed(false), 5000); return; }
+    setBusy(true); setMsg("");
+    try { await loginEmail(email, pw); location.reload(); }
+    catch (e) { setMsg(authErrorText(e)); setArmed(false); setBusy(false); }
+  };
+  const box = { background: "#1b1828", border: "1px solid #34304a", borderRadius: 12, padding: 12, marginBottom: 14 };
+  const btn = { border: "none", borderRadius: 8, padding: "7px 12px", fontWeight: 800, cursor: "pointer", fontSize: 12, marginRight: 8, marginBottom: 6 };
+  const inp = { width: "100%", boxSizing: "border-box", background: "#0e0c16", color: "#cfc7e6", border: "1px solid #34304a",
+    borderRadius: 8, padding: "8px 10px", fontSize: 12, marginBottom: 8, fontFamily: "inherit" };
+  return (
+    <div style={box}>
+      <div style={{ fontWeight: 800, color: "#ffd56b", fontSize: 13, marginBottom: 6 }}>アカウント（親用）</div>
+      <div style={{ fontSize: 11, color: linked ? "#9fe8c6" : "#cfc7e6", marginBottom: 8, lineHeight: 1.5 }}>{status}</div>
+      <div style={{ fontSize: 11, color: "#8a83a8", marginBottom: 8, lineHeight: 1.5 }}>
+        メールとパスワードを登録しておくと、アイコンを消しても・別のiPhoneでも「ログイン」で同じセーブに戻れます。
+      </div>
+      <input type="email" value={email} onChange={e => { setEmail(e.target.value); setArmed(false); }} placeholder="メールアドレス"
+        autoCapitalize="off" autoCorrect="off" spellCheck={false} style={inp} />
+      <input type="password" value={pw} onChange={e => { setPw(e.target.value); setArmed(false); }} placeholder="パスワード（6文字以上）" style={inp} />
+      {fb.uid && !linked && (
+        <button disabled={busy} onClick={doRegister} style={{ ...btn, background: "#8be9c0", color: "#12101c" }}>このセーブに登録</button>
+      )}
+      <button disabled={busy} onClick={doLogin} style={{ ...btn, background: armed ? "#e8a33a" : "#2a2740", color: armed ? "#12101c" : "#cfc7e6" }}>
+        {armed ? "もう一度押して確定" : "登録済みのメールでログイン"}
+      </button>
+      {msg && <div style={{ fontSize: 11, color: "#ffd56b", marginTop: 4, lineHeight: 1.5 }}>{msg}</div>}
+    </div>
+  );
+}
+
 function DevPanel({ onClose }) {
   const allItems = PROGRESS.flatMap(p => p.items);
   const doneAll = allItems.filter(i => i.done).length;
@@ -126,6 +182,7 @@ function DevPanel({ onClose }) {
             padding: "5px 12px", fontWeight: 800, cursor: "pointer", fontSize: 13 }}>閉じる ✕</button>
         </div>
         <div style={{ fontSize: 12, color: "#8a83a8", marginBottom: 12 }}>全体 {doneAll}/{allItems.length} 完了</div>
+        <AccountBox />
         <DeviceTransfer />
         {PROGRESS.map((p, pi) => {
           const d = p.items.filter(i => i.done).length;

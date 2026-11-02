@@ -143,3 +143,38 @@ async function loadSaveData() {
   try { localStorage.removeItem("rino_force_migrate"); } catch (e) {}
   return { key: fb.uid, data };
 }
+
+/* メール＋パスワード：今の匿名セーブにひも付ける（uidは変わらないのでセーブはそのまま） */
+function authErrorText(e) {
+  const c = (e && e.code) || "";
+  const m = {
+    "auth/operation-not-allowed": "Firebaseで「メール/パスワード」のログインがまだ有効になっていません",
+    "auth/admin-restricted-operation": "Firebaseでログインがまだ有効になっていません",
+    "auth/invalid-email": "メールアドレスの形がちがいます",
+    "auth/weak-password": "パスワードは6文字以上にしてください",
+    "auth/email-already-in-use": "このメールはすでに登録されています。「ログイン」を使ってください",
+    "auth/credential-already-in-use": "このメールはすでに別のセーブに登録されています。「ログイン」を使ってください",
+    "auth/provider-already-linked": "このセーブにはもうメールが登録されています",
+    "auth/invalid-credential": "メールかパスワードがちがいます",
+    "auth/wrong-password": "メールかパスワードがちがいます",
+    "auth/user-not-found": "このメールは登録されていません",
+    "auth/too-many-requests": "試した回数が多すぎます。しばらく待ってからもう一度",
+    "auth/network-request-failed": "通信できませんでした。電波のよい所でもう一度",
+  };
+  return m[c] || ("うまくいきませんでした（" + (c || (e && e.message) || "不明") + "）");
+}
+async function registerEmail(email, password) {
+  if (!fb.auth || !fb.auth.currentUser) throw { code: "auth/admin-restricted-operation" };
+  const am = fb.authMod;
+  const cred = am.EmailAuthProvider.credential(email.trim(), password);
+  const res = await am.linkWithCredential(fb.auth.currentUser, cred);
+  setAuthUser(res.user);
+  return res.user;
+}
+/* 登録済みのメールでログイン（別の端末・アイコンを消したあと用）。セーブが切り替わるので呼んだ側で再起動する */
+async function loginEmail(email, password) {
+  if (!fb.auth) throw { code: "auth/admin-restricted-operation" };
+  const res = await fb.authMod.signInWithEmailAndPassword(fb.auth, email.trim(), password);
+  setAuthUser(res.user);
+  return res.user;
+}

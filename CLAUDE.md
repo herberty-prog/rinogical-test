@@ -89,7 +89,7 @@
 
 ## 着手前の注意（セキュリティ）
 - **Firestore のルールが現在「誰でも読み書き可」の開発用のまま**。本番で実際に使う前に、匿名認証を入れてルールをロックダウンする。これは Phase を進める前提条件。
-  - **進行中（2026-11-02〜・C方式）**：①匿名ログイン＋自動引っ越し【済・テスト版】②メール＋パスワードの登録／ログイン画面【未】③本人がFirebaseで「匿名」「メール/パスワード」を有効化【未】④引き継ぎ（本人の端末）と、娘の端末で一度起動してセーブを uid 側へ移す【未】⑤ルールを `match /users/{uid} { allow read, write: if request.auth != null && request.auth.uid == uid; }` に切り替え【未】
+  - **進行中（2026-11-02〜・C方式）**：①匿名ログイン＋自動引っ越し【済・テスト版】②メール＋パスワードの登録／ログイン画面【済・テスト版。devパネル内の「アカウント（親用）」＝`AccountBox`。関数は `registerEmail`（匿名にひも付け・uid不変）/ `loginEmail`（切り替えて再起動）/ `authErrorText`】③本人がFirebaseで「匿名」「メール/パスワード」を有効化【未】④引き継ぎ（本人の端末）と、娘の端末で一度起動してセーブを uid 側へ移す【未】⑤ルールを `match /users/{uid} { allow read, write: if request.auth != null && request.auth.uid == uid; }` に切り替え【未】
   - ⚠ **ルールを切り替えるのは④が終わってから。** 切り替え後は端末ID側（`users/dev-…`）が読めなくなり、引き継ぎも自動引っ越しも効かなくなる。
 
 ## `src/` の中身（31ファイル・つなぐ順）
@@ -118,7 +118,7 @@
 | `37_math_houtei.jsx` | 方程式ひとそろい |
 | `38_math_units.jsx` ★ | `genFromPool` / `MATH_UNITS` / `MATH_UNIT_KEYS` |
 | `40_i18n.jsx` | `LANG` / `STR`（辞書）/ `t()` ← ①の作業はここが中心。案内文は用途ごとに別キー（`inputHint`＝数値入力／`inputHintText`＝文字入力／`arrangeHint`＝ならべかえの見出し／`arrangeTrayHint`＝札を置く枠が空のとき）。**1本にまとめ直さないこと** |
-| `45_dev_panel.jsx` | `DEV_PANEL_ENABLED` / `PROGRESS` / `DeviceTransfer`（セーブの引き継ぎ：端末IDの表示・コピー・切り替え）/ `DevPanel`。⚠ セーブ本体はFirestoreの `users/{端末ID}`、端末IDは端末のlocalStorage（`rino_device_id`）にだけある。**ホーム画面のアイコンを消すと端末IDが消えて新規扱いになる**（2026-10-31に実際に発生）。戻すにはFirebaseコンソールで元のIDを探し、devパネルの「セーブの引き継ぎ」に貼る。`DEV_PANEL_ENABLED` を false にするとこの機能も消えるので、そのときは別の場所へ移すこと |
+| `45_dev_panel.jsx` | `DEV_PANEL_ENABLED` / `PROGRESS` / `AccountBox`（親用：メール登録・ログイン）/ `DeviceTransfer`（セーブの引き継ぎ：端末IDの表示・コピー・切り替え）/ `DevPanel`。⚠ セーブ本体はFirestoreの `users/{端末ID}`、端末IDは端末のlocalStorage（`rino_device_id`）にだけある。**ホーム画面のアイコンを消すと端末IDが消えて新規扱いになる**（2026-10-31に実際に発生）。戻すにはFirebaseコンソールで元のIDを探し、devパネルの「セーブの引き継ぎ」に貼る。`DEV_PANEL_ENABLED` を false にするとこの機能も消えるので、そのときは別の場所へ移すこと |
 | `50_hud.jsx` | `HUD` / `Pill` / `Btn` |
 | `60_app.jsx` | `Rinogical`（メイン。画面の出し分け・セーブ処理）**`export default` はここ1行だけ**（ビルド時に自動で外れる） |
 | `70_screen_start.jsx` | `Loading` / `CHARACTERS` / `CharacterSelect` / `NameInput` / `Tutorial` |
