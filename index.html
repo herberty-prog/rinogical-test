@@ -95,7 +95,8 @@ const FIREBASE_CONFIG = {
 const FIREBASE_VER = "11.0.2"; // CDNから読むSDKのバージョン
 
 /* 実行時に解決される firestore 関数の入れ物 */
-const fb = { ready: false, db: null, doc: null, getDoc: null, setDoc: null, serverTimestamp: null };
+const fb = { ready: false, db: null, doc: null, getDoc: null, setDoc: null, serverTimestamp: null,
+  auth: null, authMod: null, uid: null, isAnonymous: true, email: null };
 let _memDeviceId = null; // localStorageが使えない環境用の一時ID
 
 /* 設定がプレースホルダーのままかどうか */
@@ -135,6 +136,7 @@ async function initFirebase() {
     fb.doc = fsMod.doc; fb.getDoc = fsMod.getDoc; fb.setDoc = fsMod.setDoc; fb.serverTimestamp = fsMod.serverTimestamp;
     fb.ready = true;
     console.info("[Rinogical] Firebase接続OK");
+    await initAuth(app);
     return true;
   } catch (e) {
     console.error("[Rinogical] Firebase初期化に失敗 → ローカル動作で続行:", e);
@@ -155,17 +157,71 @@ async function loadUserData(deviceId) {
 }
 
 /* Firestoreへ保存（merge）。updatedAtはサーバー時刻 */
-async function saveUserData(deviceId, data) {
+async function saveUserData(deviceId, data, opt) {
   if (!fb.ready || !deviceId) return;
   try {
     await fb.setDoc(
       fb.doc(fb.db, "users", deviceId),
       { ...data, updatedAt: fb.serverTimestamp() },
-      { merge: true }
+      { merge: !(opt && opt.replace) }
     );
   } catch (e) {
     console.error("[Rinogical] 保存失敗:", e);
   }
+}
+
+
+/* ===========================================================================
+   ログイン（2026-11〜）：匿名ログインで始め、あとで「メール＋パスワード」をひも付けられる（C方式）
+   - セーブの置き場所は users/{ログインのuid}。ログインできないとき（Firebase側で未有効など）は
+     従来どおり users/{端末ID} を使う（＝今までと同じ動き。安全に段階導入するため）
+   - 初回：uid側にセーブが無く、端末ID側にあれば、uid側へ自動でコピー（端末ID側は消さない）
+   =========================================================================== */
+async function initAuth(app) {
+  try {
+    const am = await import(`https://www.gstatic.com/firebasejs/${FIREBASE_VER}/firebase-auth.js`);
+    fb.authMod = am;
+    fb.auth = am.getAuth(app);
+    // 前回のログイン状態の復元を待つ（ここで待たないと毎回新しい匿名ユーザーができてしまう）
+    let user = await new Promise(resolve => {
+      const off = am.onAuthStateChanged(fb.auth, u => { off(); resolve(u); });
+    });
+    if (!user) user = (await am.signInAnonymously(fb.auth)).user;
+    setAuthUser(user);
+    console.info("[Rinogical] ログインOK:", user.isAnonymous ? "匿名" : user.email);
+  } catch (e) {
+    fb.uid = null;
+    console.warn("[Rinogical] ログインできないため端末IDで保存します:", e && (e.code || e.message));
+  }
+}
+
+function setAuthUser(user) {
+  fb.uid = user ? user.uid : null;
+  fb.isAnonymous = user ? user.isAnonymous : true;
+  fb.email = user ? (user.email || null) : null;
+}
+
+/* 起動時に呼ぶ：どこに保存するか（key）と、読み込んだセーブ（data）を返す */
+async function loadSaveData() {
+  const deviceId = getDeviceId();
+  if (!fb.ready || !fb.uid) return { key: deviceId, data: await loadUserData(deviceId) };
+  let force = false;
+  try { force = localStorage.getItem("rino_force_migrate") === "1"; } catch (e) {}
+  let data = force ? null : await loadUserData(fb.uid);
+  if (!data || !data.nickname) {
+    const legacy = await loadUserData(deviceId);
+    if (legacy && legacy.nickname) {
+      const copy = { ...legacy };
+      delete copy.updatedAt;
+      await saveUserData(fb.uid, { ...copy, migratedFrom: deviceId }, { replace: true });
+      data = copy;
+      console.info("[Rinogical] 端末IDのセーブをログイン側へ引っ越しました:", deviceId);
+    } else if (force) {
+      data = await loadUserData(fb.uid);
+    }
+  }
+  try { localStorage.removeItem("rino_force_migrate"); } catch (e) {}
+  return { key: fb.uid, data };
 }
 
 /* ---------- グローバルなキーフレーム ---------- */
@@ -1219,7 +1275,7 @@ function DeviceTransfer() {
     if (!/^dev-[0-9a-z-]{8,}$/i.test(id)) { setMsg("番号の形がちがいます。dev- で始まる番号をそのまま貼り付けてください"); setArmed(false); return; }
     if (id === cur) { setMsg("今と同じ番号です"); setArmed(false); return; }
     if (!armed) { setArmed(true); setMsg("もう一度押すと切り替えて再起動します（今のセーブは使われなくなります）"); setTimeout(() => setArmed(false), 5000); return; }
-    try { localStorage.setItem("rino_device_id", id); }
+    try { localStorage.setItem("rino_device_id", id); localStorage.setItem("rino_force_migrate", "1"); }
     catch (e) { setMsg("保存できませんでした"); return; }
     location.reload();
   };
@@ -1342,9 +1398,8 @@ function Rinogical() {
     (async () => {
       const sleep = new Promise(r => setTimeout(r, 1300)); // ローディング演出の最低表示時間
       await initFirebase();
-      const id = getDeviceId();
-      deviceIdRef.current = id;
-      const data = await loadUserData(id);
+      const { key, data } = await loadSaveData(); // ログインできればuid、できなければ端末IDに保存
+      deviceIdRef.current = key;
       await sleep;
       if (!alive) return;
       if (data && data.nickname) {
