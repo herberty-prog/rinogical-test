@@ -1553,8 +1553,11 @@ function Rinogical() {
     : baseGrad;
 
   return (
-    <div style={{ ...font, minHeight: 620, color: C.ink, position: "relative", overflow: "hidden",
-      background: bgStyle, padding: "26px 18px", borderRadius: 24 }}>
+    <div style={{ ...font, minHeight: "100vh", boxSizing: "border-box", color: C.ink, position: "relative", overflow: "hidden",
+      background: bgStyle,
+      // iPhoneのホーム画面アプリは時計・電波表示の下まで広がるので、その分（safe-area）を上下に足す
+      padding: "calc(env(safe-area-inset-top, 0px) + 26px) 18px calc(env(safe-area-inset-bottom, 0px) + 26px)",
+      borderRadius: 24 }}>
       <Keyframes />
       {/* 背景のルーン */}
       {["✦", "✧", "⚝", "❉", "✺", "✦"].map((r, i) => (
