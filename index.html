@@ -516,6 +516,200 @@ function HPBar({ label, value, max, color }) {
   );
 }
 
+/* ================= 図を出すしくみ（フェーズ5・数学の図形・グラフ・データ）=================
+   問題に fig: { type, ... } を持たせると、バトル画面の問題文の上に図（SVG）を出す。fig が無ければ何も出さない。
+   ・sector  … おうぎ形   { r, deg }            半径 r cm・中心角 deg°
+   ・circle  … 円         { r }
+   ・coord   … 座標とグラフ { kind: "line" | "hyper" | "none", a, pts: [[x, y, "A"], ...] }
+   ・bars    … ヒストグラム { edges: [0,10,20,...], counts: [..], unit: "点" }
+   ・solid   … 立体の見取図 { kind: "cuboid" | "cube" | "prism3" | "cylinder" | "cone" | "pyramid" | "sphere", labels: {...} }
+   ※図は「目安」。長さの比はおおよそでよく、数値はラベルで示す（図の長さで答えを読ませない）。 */
+function Figure({ fig }) {
+  if (!fig) return null;
+  const W = 240, H = 170;
+  const stroke = C.aqua, txt = C.ink, sub = C.inkDim, fill = "rgba(110,231,224,.14)";
+  const label = (x, y, s, o = {}) => (
+    <text key={o.key} x={x} y={y} fill={o.color || txt} fontSize={o.size || 13} fontWeight="800" textAnchor={o.anchor || "middle"}
+      dominantBaseline="middle" stroke={C.bg0} strokeWidth="4" strokeLinejoin="round" paintOrder="stroke"
+      style={{ fontFamily: "inherit" }}>{s}</text>
+  );
+  let body = null;
+
+  if (fig.type === "sector" || fig.type === "circle") {
+    const cx = W / 2, cy = H / 2 + 6, R = 62;
+    if (fig.type === "circle") {
+      body = (<>
+        <circle cx={cx} cy={cy} r={R} fill={fill} stroke={stroke} strokeWidth="3" />
+        <line x1={cx} y1={cy} x2={cx + R} y2={cy} stroke={C.gold} strokeWidth="3" />
+        <circle cx={cx} cy={cy} r="3" fill={txt} />
+        {label(cx + R / 2, cy - 12, `${fig.r}cm`, { color: C.gold })}
+      </>);
+    } else {
+      const deg = fig.deg, rad = (a) => (a - 90) * Math.PI / 180; // 上向きから時計回り
+      const a0 = -deg / 2, a1 = deg / 2;
+      const p = (a) => [cx + R * Math.cos(rad(a)), cy + R * Math.sin(rad(a))];
+      const [x0, y0] = p(a0), [x1, y1] = p(a1);
+      const large = deg > 180 ? 1 : 0;
+      // 半径のラベルは、右側の半径の中点から外向き（図の外側）にずらす。中心角は図の内側に小さな弧で示す
+      const nx = Math.cos(rad(a1 + 90)), ny = Math.sin(rad(a1 + 90));
+      const q = (a, rr) => [cx + rr * Math.cos(rad(a)), cy + rr * Math.sin(rad(a))];
+      const [s0x, s0y] = q(a0, 14), [s1x, s1y] = q(a1, 14), [dx, dy] = q(0, 30);
+      body = (<>
+        <path d={`M ${cx} ${cy} L ${x0} ${y0} A ${R} ${R} 0 ${large} 1 ${x1} ${y1} Z`} fill={fill} stroke={stroke} strokeWidth="3" />
+        <path d={`M ${s0x} ${s0y} A 14 14 0 ${large} 1 ${s1x} ${s1y}`} fill="none" stroke={C.peach} strokeWidth="2" />
+        <circle cx={cx} cy={cy} r="3" fill={txt} />
+        {label((cx + x1) / 2 + nx * 16, (cy + y1) / 2 + ny * 16, `${fig.r}cm`, { color: C.gold })}
+        {deg < 150 ? label(cx, cy + 18, `${deg}°`, { color: C.peach, size: 12 }) : label(dx, dy, `${deg}°`, { color: C.peach, size: 12 })}
+      </>);
+    }
+  }
+
+  if (fig.type === "coord") {
+    const cx = W / 2, cy = H / 2, s = 12; // 1目もり 12px、-6〜6
+    const X = (x) => cx + x * s, Y = (y) => cy - y * s;
+    const grid = [];
+    for (let i = -6; i <= 6; i++) {
+      grid.push(<line key={"v" + i} x1={X(i)} y1={Y(-6.5)} x2={X(i)} y2={Y(6.5)} stroke="rgba(255,255,255,.08)" />);
+      grid.push(<line key={"h" + i} x1={X(-6.5)} y1={Y(i)} x2={X(6.5)} y2={Y(i)} stroke="rgba(255,255,255,.08)" />);
+    }
+    let graph = null;
+    if (fig.kind === "line") {
+      const xm = Math.min(6.5, 6.5 / Math.max(1, Math.abs(fig.a)));
+      graph = <line x1={X(-xm)} y1={Y(-xm * fig.a)} x2={X(xm)} y2={Y(xm * fig.a)} stroke={C.gold} strokeWidth="3" />;
+    } else if (fig.kind === "hyper") {
+      const pts = (sgn) => {
+        const out = [];
+        for (let x = 0.3; x <= 6.5; x += 0.1) {
+          const y = fig.a / (sgn * x);
+          if (Math.abs(y) <= 6.5) out.push(`${X(sgn * x)},${Y(y)}`);
+        }
+        return out.join(" ");
+      };
+      graph = <>{[1, -1].map(sg => <polyline key={sg} points={pts(sg)} fill="none" stroke={C.gold} strokeWidth="3" />)}</>;
+    }
+    body = (<>
+      {grid}
+      <line x1={X(-6.5)} y1={cy} x2={X(6.5)} y2={cy} stroke={sub} strokeWidth="1.5" />
+      <line x1={cx} y1={Y(-6.5)} x2={cx} y2={Y(6.5)} stroke={sub} strokeWidth="1.5" />
+      {label(X(6.5) + 8, cy, "x", { color: sub, size: 12 })}
+      {label(cx, Y(6.5) - 6, "y", { color: sub, size: 12 })}
+      {label(cx - 7, cy + 8, "O", { color: sub, size: 10 })}
+      {graph}
+      {(fig.pts || []).map(([x, y, nm], i) => (
+        <g key={i}>
+          <circle cx={X(x)} cy={Y(y)} r="4" fill={C.peach} />
+          {nm && label(X(x) + 12, Y(y) - 9, nm, { color: C.peach, size: 12 })}
+        </g>
+      ))}
+    </>);
+  }
+
+  if (fig.type === "bars") {
+    const n = fig.counts.length, max = Math.max(...fig.counts, 1);
+    const left = 26, bottom = H - 26, top = 14, bw = (W - left - 34) / n; // 右はしに単位を書くすき間
+    const hY = (c) => bottom - (bottom - top) * c / max;
+    body = (<>
+      <line x1={left} y1={bottom} x2={left + n * bw + 6} y2={bottom} stroke={sub} strokeWidth="1.5" />
+      <line x1={left} y1={top} x2={left} y2={bottom} stroke={sub} strokeWidth="1.5" />
+      {fig.counts.map((c, i) => (
+        <g key={i}>
+          <rect x={left + i * bw} y={hY(c)} width={bw} height={bottom - hY(c)} fill={fill} stroke={stroke} strokeWidth="2" />
+          {label(left + i * bw + bw / 2, hY(c) - 9, String(c), { color: C.gold, size: 12 })}
+        </g>
+      ))}
+      {fig.edges.map((e, i) => label(left + i * bw, bottom + 12, String(e), { color: sub, size: 10, key: "e" + i }))}
+      {label(W - 4, bottom - 10, fig.unit ? `（${fig.unit}）` : "", { color: sub, size: 10, anchor: "end" })}
+    </>);
+  }
+
+  if (fig.type === "solid") {
+    const L = fig.labels || {}, k = fig.kind;
+    const sw = { stroke, strokeWidth: 2.5, fill: "none" };
+    const dash = { stroke, strokeWidth: 1.5, strokeDasharray: "4 4", fill: "none" };
+    if (k === "cuboid" || k === "cube" || k === "prism3") {
+      const x0 = 50, y0 = 130, w = k === "cube" ? 90 : 110, h = k === "cube" ? 80 : 70, dx = 40, dy = -30;
+      if (k === "prism3") {
+        // 三角柱：手前の三角形と奥の三角形
+        const A = [x0, y0], B = [x0 + w, y0], T = [x0 + w / 2, y0 - h];
+        const o = (P) => [P[0] + dx, P[1] + dy];
+        body = (<>
+          <polygon points={[A, B, T].map(p => p.join(",")).join(" ")} {...sw} fill={fill} />
+          <polyline points={[B, o(B), o(T), T].map(p => p.join(",")).join(" ")} {...sw} />
+          <line x1={T[0]} y1={T[1]} x2={o(T)[0]} y2={o(T)[1]} {...sw} />
+          <polyline points={[A, o(A), o(B)].map(p => p.join(",")).join(" ")} {...dash} />
+          <line x1={o(A)[0]} y1={o(A)[1]} x2={o(T)[0]} y2={o(T)[1]} {...dash} />
+          {L.base && label(x0 + w / 2, y0 + 14, L.base, { color: C.gold })}
+          {L.h && label(x0 + w / 2 - 4, y0 - h / 2 + 10, L.h, { color: C.peach, size: 12 })}
+          {L.d && label(x0 + w + dx / 2 + 14, y0 + dy / 2, L.d, { color: C.gold })}
+        </>);
+      } else {
+        const P = [[x0, y0], [x0 + w, y0], [x0 + w, y0 - h], [x0, y0 - h]];
+        const o = (p) => [p[0] + dx, p[1] + dy];
+        body = (<>
+          <polygon points={P.map(p => p.join(",")).join(" ")} {...sw} fill={fill} />
+          <polyline points={[P[1], o(P[1]), o(P[2]), o(P[3]), P[3]].map(p => p.join(",")).join(" ")} {...sw} />
+          <line x1={P[2][0]} y1={P[2][1]} x2={o(P[2])[0]} y2={o(P[2])[1]} {...sw} />
+          <polyline points={[P[0], o(P[0]), o(P[1])].map(p => p.join(",")).join(" ")} {...dash} />
+          <line x1={o(P[0])[0]} y1={o(P[0])[1]} x2={o(P[3])[0]} y2={o(P[3])[1]} {...dash} />
+          {L.w && label(x0 + w / 2, y0 + 14, L.w, { color: C.gold })}
+          {L.h && label(x0 - 20, y0 - h / 2, L.h, { color: C.gold })}
+          {L.d && label(x0 + w + dx / 2 + 16, y0 + dy / 2, L.d, { color: C.gold })}
+        </>);
+      }
+    } else if (k === "cylinder" || k === "cone") {
+      const cx = W / 2, by = 135, rx = 52, ry = 14, h = 100;
+      body = (<>
+        {k === "cylinder" ? (<>
+          <ellipse cx={cx} cy={by - h} rx={rx} ry={ry} {...sw} fill={fill} />
+          <line x1={cx - rx} y1={by - h} x2={cx - rx} y2={by} {...sw} />
+          <line x1={cx + rx} y1={by - h} x2={cx + rx} y2={by} {...sw} />
+        </>) : (<>
+          <line x1={cx} y1={by - h} x2={cx - rx} y2={by} {...sw} />
+          <line x1={cx} y1={by - h} x2={cx + rx} y2={by} {...sw} />
+          <line x1={cx} y1={by - h} x2={cx} y2={by} {...dash} />
+        </>)}
+        <path d={`M ${cx - rx} ${by} A ${rx} ${ry} 0 0 0 ${cx + rx} ${by}`} {...sw} />
+        <path d={`M ${cx - rx} ${by} A ${rx} ${ry} 0 0 1 ${cx + rx} ${by}`} {...dash} />
+        <line x1={cx} y1={by} x2={cx + rx} y2={by} stroke={C.gold} strokeWidth="2" />
+        {L.r && label(cx + rx / 2, by + ry + 10, L.r, { color: C.gold })}
+        {L.h && (k === "cone"
+          ? label(cx + 5, by - h * 0.3, L.h, { color: C.peach, size: 12, anchor: "start" })
+          : label(cx + rx + 22, by - h / 2, L.h, { color: C.peach }))}
+      </>);
+    } else if (k === "pyramid") {
+      const x0 = 55, y0 = 135, w = 100, dx = 40, dy = -26, apex = [x0 + (w + dx) / 2, 20];
+      const A = [x0, y0], B = [x0 + w, y0], Cc = [x0 + w + dx, y0 + dy], D = [x0 + dx, y0 + dy];
+      const centre = [(A[0] + Cc[0]) / 2, (A[1] + Cc[1]) / 2];
+      body = (<>
+        <polyline points={[A, B, Cc].map(p => p.join(",")).join(" ")} {...sw} />
+        <polyline points={[A, D, Cc].map(p => p.join(",")).join(" ")} {...dash} />
+        {[A, B, Cc].map((p, i) => <line key={i} x1={apex[0]} y1={apex[1]} x2={p[0]} y2={p[1]} {...sw} />)}
+        <line x1={apex[0]} y1={apex[1]} x2={D[0]} y2={D[1]} {...dash} />
+        <line x1={apex[0]} y1={apex[1]} x2={centre[0]} y2={centre[1]} stroke={C.peach} strokeWidth="1.5" strokeDasharray="3 3" />
+        {L.base && label(x0 + w / 2, y0 + 14, L.base, { color: C.gold })}
+        {L.h && label(centre[0] + 20, (apex[1] + centre[1]) / 2, L.h, { color: C.peach })}
+      </>);
+    } else if (k === "sphere") {
+      const cx = W / 2, cy = H / 2 + 4, R = 64;
+      body = (<>
+        <circle cx={cx} cy={cy} r={R} {...sw} fill={fill} />
+        <path d={`M ${cx - R} ${cy} A ${R} 16 0 0 0 ${cx + R} ${cy}`} {...sw} />
+        <path d={`M ${cx - R} ${cy} A ${R} 16 0 0 1 ${cx + R} ${cy}`} {...dash} />
+        <line x1={cx} y1={cy} x2={cx + R} y2={cy} stroke={C.gold} strokeWidth="2" />
+        <circle cx={cx} cy={cy} r="3" fill={txt} />
+        {L.r && label(cx + R / 2, cy - 12, L.r, { color: C.gold })}
+      </>);
+    }
+  }
+
+  if (!body) return null;
+  return (
+    <div style={{ display: "flex", justifyContent: "center", margin: "4px 0 8px" }}>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: 300 }} role="img" aria-label="図">{body}</svg>
+    </div>
+  );
+}
+
 /* ================= 問題エンジン（正負の数）================= */
 const rint = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
 const fmt = (n) => (n < 0 ? `(${n})` : `${n}`);
@@ -592,6 +786,18 @@ function term(k, v, first) {
 function cst(n) { return n === 0 ? "" : (n > 0 ? ` + ${n}` : ` - ${-n}`); }
 function nz(lo, hi) { let n = 0; while (n === 0) n = rint(lo, hi); return n; }
 function pickOne(arr) { return arr[rint(0, arr.length - 1)]; }
+
+/* フェーズ5の数学（比例・データ・図形）で使う部品
+   piStr(k)：円周率をふくむ答えの表し方（1 → "π"、6 → "6π"）。tools/verify.mjs も同じ表し方で検算する。
+   choices4(答え, 候補)：答え＋候補から重ならない3つで4択をつくる（候補が足りなければ数を足して埋める）。 */
+function piStr(k) { return k === 1 ? "π" : `${k}π`; }
+function choices4(ans, cands) {
+  const out = [ans];
+  for (const c of cands) { if (out.length >= 4) break; if (c !== undefined && c !== null && !out.some(o => String(o) === String(c))) out.push(c); }
+  let g = 1;
+  while (out.length < 4 && typeof ans === "number") { const c = ans + g * 2; if (!out.includes(c)) out.push(c); g++; }
+  return shuffle(out);
+}
 
 /* 正負の数の標準：型を7つ持ち、数はその場で決める。4回に1回は固定の HYOJUN からも出す。
    答えはすべて整数（わり算は割り切れる数だけ作る）。tools/verify.mjs が式を計算して検算する。 */
@@ -1439,6 +1645,287 @@ function localExplainMoji(p) {
   ].join("\n");
 }
 
+/* ================= 数学：データの活用（フェーズ5）=================
+   ・超基本（Lv1-2）：平均値・中央値（個数が奇数）・最頻値・範囲
+   ・標準（Lv3〜）：中央値（個数が偶数）、相対度数、階級値、ヒストグラム（図つき）の読み取り、
+                   相対度数で表す確率（多数回の試行）、用語
+   ・答えが整数にならない相対度数・確率は、4択を問題側で作る（小数 2 けたまで）。
+   ・v（検算用の材料）を持たせ、tools/verify.mjs が計算し直して確かめる。 */
+const DATA_TERMS = [
+  { q: "データを大きさの順に並べたとき、まん中にくる値は？", a: "中央値", ng: ["平均値", "最頻値", "範囲"] },
+  { q: "データの中で、いちばん多く出てくる値は？", a: "最頻値", ng: ["中央値", "平均値", "度数"] },
+  { q: "最大値と最小値の差を何という？", a: "範囲", ng: ["階級", "度数", "平均値"] },
+  { q: "データを整理するために区切った、それぞれの区間を何という？", a: "階級", ng: ["度数", "範囲", "階級値"] },
+  { q: "それぞれの階級に入るデータの個数を何という？", a: "度数", ng: ["階級", "相対度数", "累積度数"] },
+  { q: "階級のまん中の値を何という？", a: "階級値", ng: ["中央値", "平均値", "度数"] },
+  { q: "度数の分布を、柱を並べたグラフで表したものは？", a: "ヒストグラム", ng: ["折れ線グラフ", "円グラフ", "帯グラフ"] },
+  { q: "ある階級の度数の、全体の度数に対する割合を何という？", a: "相対度数", ng: ["累積度数", "度数", "階級値"] },
+  { q: "最初の階級から、ある階級までの度数を合計したものは？", a: "累積度数", ng: ["相対度数", "度数", "範囲"] },
+  { q: "あることがらの起こりやすさの程度を表す数を何という？", a: "確率", ng: ["度数", "範囲", "平均値"] },
+];
+const r2 = (x) => Math.round(x * 100) / 100;
+
+function dataList(n, lo, hi) { const a = []; for (let i = 0; i < n; i++) a.push(rint(lo, hi)); return a; }
+const listStr = (a) => a.join("、");
+
+function genKihon_data(level) {
+  const t = rint(1, 4);
+  if (t === 1) { // 平均値（割り切れるように最後の1つで調整）
+    const n = pickOne([4, 5]), m = rint(4, 8);
+    let vals;
+    for (;;) { vals = dataList(n - 1, 1, 10); const last = n * m - vals.reduce((s, x) => s + x, 0); if (last >= 1 && last <= 10) { vals.push(last); break; } }
+    vals = shuffle(vals);
+    return { q: `${n}人のテストの点数「${listStr(vals)}」の平均値は？`, a: m, kind: "超基本", text: true, v: { t: "mean", vals } };
+  }
+  if (t === 2) { // 中央値（奇数個）
+    const vals = dataList(pickOne([5, 7]), 1, 20);
+    const med = vals.slice().sort((x, y) => x - y)[(vals.length - 1) / 2];
+    return { q: `データ「${listStr(vals)}」の中央値は？`, a: med, kind: "超基本", text: true, v: { t: "median", vals } };
+  }
+  if (t === 3) { // 最頻値（1つの値だけ3回）
+    const m = rint(2, 15);
+    const others = shuffle([...Array(20).keys()].map(i => i + 1).filter(x => x !== m)).slice(0, 4);
+    const vals = shuffle([m, m, m, others[0], others[1], others[2], others[2] === others[3] ? others[0] : others[3]]);
+    return { q: `データ「${listStr(vals)}」の最頻値は？`, a: m, kind: "超基本", text: true, v: { t: "mode", vals } };
+  }
+  const vals = dataList(6, 1, 30); // 範囲
+  return { q: `データ「${listStr(vals)}」の範囲は？`, a: Math.max(...vals) - Math.min(...vals), kind: "超基本", text: true, v: { t: "range", vals } };
+}
+
+function genStd_data(level) {
+  const t = rint(1, 7);
+  if (t === 1) { // 中央値（偶数個・整数になるように）
+    for (;;) {
+      const vals = dataList(6, 1, 20); const s = vals.slice().sort((x, y) => x - y);
+      if ((s[2] + s[3]) % 2 === 0) return { q: `データ「${listStr(vals)}」の中央値は？`, a: (s[2] + s[3]) / 2, kind: "標準", text: true, v: { t: "median", vals } };
+    }
+  }
+  if (t === 2) { // 相対度数
+    const total = pickOne([20, 25, 50]), c = rint(1, total - 1), a = r2(c / total);
+    const ch = choices4(a, [r2(a + 0.1), r2(Math.max(0.01, a - 0.05)), r2(c / 100), r2(a + 0.2)].filter(x => x > 0 && x < 1));
+    return { q: `全体が${total}人で、ある階級の度数が${c}人。この階級の相対度数は？`, a, choices: ch, ui: "choice", kind: "標準", text: true, v: { t: "rel", c, total } };
+  }
+  if (t === 3) { // 階級値
+    const w = pickOne([5, 10, 20]), lo = w * rint(0, 8);
+    return { q: `${lo}以上${lo + w}未満の階級の階級値は？`, a: lo + w / 2, kind: "標準", text: true, v: { t: "classmid", lo, hi: lo + w } };
+  }
+  if (t === 4 || t === 5) { // ヒストグラムの読み取り（図つき）
+    const w = 10, off = pickOne([0, 50]), edges = [0, 10, 20, 30, 40, 50].map(x => x + off);
+    let counts; do { counts = dataList(5, 1, 9); } while (counts.filter(c => c === Math.max(...counts)).length !== 1);
+    const fig = { type: "bars", edges, counts, unit: "点" };
+    const f = rint(1, 4);
+    if (f === 1) { const i = rint(0, 4); return { q: `${edges[i]}点以上${edges[i + 1]}点未満の人は何人？`, a: counts[i], kind: "標準", text: true, fig, v: { t: "bars_count", counts, i } }; }
+    if (f === 2) { const i = counts.indexOf(Math.max(...counts)); return { q: "度数がいちばん多い階級の階級値は？", a: edges[i] + w / 2, kind: "標準", text: true, fig, v: { t: "bars_modeclass", edges, counts } }; }
+    if (f === 3) { const i = rint(1, 4); return { q: `${edges[i]}点未満の人は全部で何人？`, a: counts.slice(0, i).reduce((s, x) => s + x, 0), kind: "標準", text: true, fig, v: { t: "bars_cum", counts, i } }; }
+    return { q: "全体の人数は何人？", a: counts.reduce((s, x) => s + x, 0), kind: "標準", text: true, fig, v: { t: "bars_total", counts } };
+  }
+  if (t === 6) { // 相対度数で表す確率
+    const n = pickOne([500, 1000, 2000]), a = r2(rint(20, 80) / 100), k = Math.round(n * a);
+    const ch = choices4(a, [r2(1 - a), r2(a + 0.1), r2(Math.max(0.05, a - 0.1))].filter(x => x > 0 && x < 1));
+    return { q: `ペットボトルのキャップを${n}回投げたら、表が${k}回出た。表が出る確率はおよそいくつ？`, a, choices: ch, ui: "choice", kind: "標準", text: true, v: { t: "prob", k, n } };
+  }
+  const d = pickOne(DATA_TERMS);
+  return { q: d.q, a: d.a, type: "text", ui: "choice", choices: shuffle([d.a].concat(d.ng)), kind: "用語", text: true };
+}
+
+function localExplainData(p) {
+  return [
+    "ナイスチャレンジ！👏 いっしょに見直そう。",
+    "・平均値＝合計÷個数、中央値＝並べてまん中、最頻値＝いちばん多い値、範囲＝最大−最小。",
+    "・相対度数＝その階級の度数÷全体の度数。",
+    `・答えは「${p.a}」。`,
+    "もう一回いける！🌟",
+  ].join("\n");
+}
+
+const EXPLAIN_DATA =
+  "あなたは中学1年生のための、やさしい数学の先生「マギ先生」です。" +
+  "解説スタイル：①短文で ②箇条書きは行頭に「・」だけ ③むずかしい漢字にはふりがな ④まず良いところを褒める ⑤絶対に責めない・否定しない。" +
+  "重要：マークダウン記号（** や * や # や ```）は絶対に使わない。" +
+  "単元はデータの活用（平均値・中央値・最頻値・範囲、度数分布とヒストグラム、相対度数・累積度数、多数回の試行による確率）。値を並べる、合計を数えるなど手順を順に示す。" +
+  "四分位数（中2）や場合の数を使う確率（中2）には立ち入らない。絵文字は1〜2個までOK。毎回みじかく。";
+
+/* ================= 数学：平面図形（フェーズ5）=================
+   ・図（おうぎ形・円）つきで、弧の長さ・面積・中心角を求める。円周率をふくむ答えは「6π」の形。
+   ・超基本（Lv1-2）：円の周の長さ・面積、用語（記号・直線・図形の移動）
+   ・標準（Lv3〜）：おうぎ形の弧の長さ・面積、弧の長さから中心角、用語（作図・接線）
+   ・おうぎ形は答えが整数×π になる半径と中心角の組だけ使う。v を持たせ、tools/verify.mjs が計算し直す。 */
+const HEIMEN_TERMS = [
+  { q: "2つの直線が垂直であることを表す記号は？", a: "⊥", ng: ["//", "∠", "△"], why: "「AB⊥CD」で、ABとCDが垂直という意味。" },
+  { q: "2つの直線が平行であることを表す記号は？", a: "//", ng: ["⊥", "∠", "≡"], why: "「AB//CD」で、ABとCDが平行という意味。" },
+  { q: "両方向に限りなくのびたまっすぐな線を何という？", a: "直線", ng: ["線分", "半直線", "弧"], why: "両方向に限りなくのびるのが直線、両はしがあるのが線分。" },
+  { q: "2点を両はしとする、まっすぐな線を何という？", a: "線分", ng: ["直線", "半直線", "弦"], why: "両はしがあるのが線分。片方だけにのびるのが半直線。" },
+  { q: "円周上の2点を結ぶ線分を何という？", a: "弦", ng: ["弧", "半径", "接線"], why: "円周上の2点を結ぶ線分が弦。円周の一部が弧。" },
+  { q: "円周の一部分を何という？", a: "弧", ng: ["弦", "半径", "中心角"], why: "円周の一部分が弧。弧の両はしを結ぶ線分が弦だよ。" },
+  { q: "円の接線と、接点を通る半径がつくる角は何度？", a: "90度", ng: ["45度", "60度", "180度"], why: "円の接線は、接点を通る半径に垂直。だから90度。" },
+  { q: "図形を、一定の方向に一定の距離だけずらす移動は？", a: "平行移動", ng: ["回転移動", "対称移動", "拡大"], why: "向きを変えずにずらすのが平行移動。" },
+  { q: "図形を、ある点を中心に回す移動は？", a: "回転移動", ng: ["平行移動", "対称移動", "縮小"], why: "点を中心にくるっと回すのが回転移動。" },
+  { q: "図形を、ある直線を折り目に裏返す移動は？", a: "対称移動", ng: ["平行移動", "回転移動", "拡大"], why: "直線を折り目にして裏返すのが対称移動。" },
+  { q: "線分の中点を通り、その線分に垂直な直線を何という？", a: "垂直二等分線", ng: ["角の二等分線", "接線", "対角線"], why: "線分を2等分し、しかも垂直に交わる直線が垂直二等分線。" },
+  { q: "角を2等分する半直線を何という？", a: "角の二等分線", ng: ["垂直二等分線", "中線", "対角線"], why: "角の大きさをちょうど半分に分けるのが角の二等分線。" },
+  { q: "作図で使ってよい道具は、定規ともう1つは？", a: "コンパス", ng: ["分度器", "三角定規", "ものさし"], why: "作図は定規（線を引くだけ）とコンパスだけを使うよ。" },
+];
+const SECTOR_SET = []; // 弧の長さ・面積がどちらも整数×π になる (r, 中心角) の組
+for (const r of [2, 3, 4, 6, 8, 9, 10, 12]) for (const d of [30, 45, 60, 90, 120, 135, 150, 180, 210, 240, 270, 300]) {
+  if ((2 * r * d) % 360 === 0 && (r * r * d) % 360 === 0) SECTOR_SET.push([r, d]);
+}
+
+function heimenTerm() {
+  const d = pickOne(HEIMEN_TERMS);
+  return { q: d.q, a: d.a, type: "text", ui: "choice", choices: shuffle([d.a].concat(d.ng)), kind: "用語", why: d.why, text: true };
+}
+
+function genKihon_heimen(level) {
+  const t = rint(1, 3);
+  if (t === 1) { // 円の周の長さ
+    const r = rint(1, 12), k = 2 * r;
+    return { q: "この円の周の長さは何cm？", a: piStr(k), type: "text", ui: "choice", choices: piChoices(k, [r, r * r, 4 * r]), kind: "超基本", text: true,
+      fig: { type: "circle", r }, v: { t: "circ_len", r } };
+  }
+  if (t === 2) { // 円の面積
+    const r = rint(2, 12), k = r * r;
+    return { q: "この円の面積は何cm²？", a: piStr(k), type: "text", ui: "choice", choices: piChoices(k, [2 * r, 4 * r, 2 * r * r]), kind: "超基本", text: true,
+      fig: { type: "circle", r }, v: { t: "circ_area", r } };
+  }
+  return heimenTerm();
+}
+
+function genStd_heimen(level) {
+  const t = rint(1, 4);
+  const [r, d] = pickOne(SECTOR_SET);
+  if (t === 1) { // おうぎ形の弧の長さ
+    const k = 2 * r * d / 360;
+    return { q: "このおうぎ形の弧の長さは何cm？", a: piStr(k), type: "text", ui: "choice", choices: piChoices(k, [2 * r, r * r * d / 360, k * 2, k + 1]), kind: "標準", text: true,
+      fig: { type: "sector", r, deg: d }, v: { t: "arc", r, deg: d } };
+  }
+  if (t === 2) { // おうぎ形の面積
+    const k = r * r * d / 360;
+    return { q: "このおうぎ形の面積は何cm²？", a: piStr(k), type: "text", ui: "choice", choices: piChoices(k, [r * r, 2 * r * d / 360, k * 2, k + 2]), kind: "標準", text: true,
+      fig: { type: "sector", r, deg: d }, v: { t: "sector", r, deg: d } };
+  }
+  if (t === 3) { // 弧の長さから中心角
+    const k = 2 * r * d / 360;
+    return { q: `半径${r}cm、弧の長さ${piStr(k)}cmのおうぎ形の中心角は何度？`, a: d, kind: "標準", text: true,
+      choices: choices4(d, [d / 2, 360 - d, d + 30, d * 2].filter(x => x > 0 && x < 360 && Number.isInteger(x))), ui: "choice", v: { t: "deg_from_arc", r, k } };
+  }
+  return heimenTerm();
+}
+
+function localExplainHeimen(p) {
+  return [
+    "ナイスチャレンジ！👏 いっしょに見直そう。",
+    p.why ? `・${p.why}` : "・円周＝2×π×半径、円の面積＝π×半径×半径。",
+    "・おうぎ形は円の「中心角/360」だけ。弧の長さも面積も、円の分に 中心角/360 をかけるよ。",
+    `・答えは「${p.a}」。`,
+    "もう一回いける！🌟",
+  ].join("\n");
+}
+
+const EXPLAIN_HEIMEN =
+  "あなたは中学1年生のための、やさしい数学の先生「マギ先生」です。" +
+  "解説スタイル：①短文で ②箇条書きは行頭に「・」だけ ③むずかしい漢字にはふりがな ④まず良いところを褒める ⑤絶対に責めない・否定しない。" +
+  "重要：マークダウン記号（** や * や # や ```）は絶対に使わない。" +
+  "単元は平面図形（直線・線分・半直線、垂直と平行、図形の移動、基本の作図、円とおうぎ形の弧の長さ・面積）。おうぎ形は「円全体×中心角/360」で考えることを、ピザの1切れなどのたとえで示す。円周率πはそのまま残す。" +
+  "合同・相似や円周角（中2・中3）には立ち入らない。絵文字は1〜2個までOK。毎回みじかく。";
+
+/* ================= 数学：比例と反比例（フェーズ5）=================
+   ・超基本（Lv1-2）：比例定数を求める／式に代入して y を求める（比例・反比例）
+   ・標準（Lv3〜）：別の x のときの y、グラフ（図つき）から式を読む、グラフ上の点、用語
+   ・答えは整数か「y=3x」のような短い式。v（検算用の材料）を持たせ、tools/verify.mjs が計算し直して確かめる。
+   ・反比例の比例定数は 6・8・12・18・24 など約数の多い数にして、y が整数になる x だけを使う。 */
+const HIREI_TERMS = [
+  { q: "y = ax の a を何という？", a: "比例定数", ng: ["変数", "座標", "原点"], why: "y = ax（反比例は y = a/x）の a を比例定数というよ。" },
+  { q: "x 軸と y 軸が交わる点を何という？", a: "原点", ng: ["頂点", "中心", "交点O"], why: "x軸とy軸の交わる点が原点O。座標は(0, 0)だよ。" },
+  { q: "比例のグラフは、どんな線になる？", a: "直線", ng: ["双曲線", "円", "折れ線"], why: "比例のグラフは原点を通る直線だよ。" },
+  { q: "反比例のグラフの名前は？", a: "双曲線", ng: ["直線", "放物線", "円"], why: "反比例のグラフは、なめらかな2本の曲線＝双曲線。" },
+  { q: "比例のグラフは、かならずどの点を通る？", a: "原点", ng: ["(1, 1)", "(0, 1)", "(1, 0)"], why: "y = ax に x = 0 を入れると y = 0。だから原点を通るよ。" },
+  { q: "y = ax で a が負のとき、x がふえると y は？", a: "へる", ng: ["ふえる", "変わらない", "0になる"], why: "a が負だとグラフは右下がり。x がふえると y はへるよ。" },
+  { q: "反比例で、x の値が2倍になると y の値は？", a: "1/2倍", ng: ["2倍", "4倍", "変わらない"], why: "反比例は xy = a で一定。x が2倍なら y は1/2倍。" },
+  { q: "比例で、x の値が3倍になると y の値は？", a: "3倍", ng: ["1/3倍", "9倍", "変わらない"], why: "比例は y = ax。x が3倍なら y も3倍。" },
+  { q: "点(3, -2)の x 座標は？", a: "3", ng: ["-2", "1", "5"], why: "(x座標, y座標)の順に書くよ。前が x 座標。", type: "text" },
+  { q: "点(-4, 5)の y 座標は？", a: "5", ng: ["-4", "1", "9"], why: "(x座標, y座標)の順。後ろが y 座標。", type: "text" },
+];
+const HANPI_A = [6, 8, 12, 18, 24];
+const divisors = (n) => { const out = []; for (let i = 1; i <= n; i++) if (n % i === 0) out.push(i); return out; };
+const lineStr = (a) => a === 1 ? "y=x" : a === -1 ? "y=-x" : `y=${a}x`;
+const hyperStr = (a) => `y=${a}/x`;
+
+function hireiTerm() {
+  const d = pickOne(HIREI_TERMS);
+  return { q: d.q, a: d.a, type: "text", ui: "choice", choices: shuffle([d.a].concat(d.ng)), kind: "用語", why: d.why, text: true };
+}
+
+function genKihon_hirei(level) {
+  const t = rint(1, 4);
+  if (t === 1) { // 比例定数
+    const a = nz(-6, 6), x = nz(-5, 5);
+    return { q: `y は x に比例し、x = ${x} のとき y = ${a * x}。比例定数は？`, a, kind: "超基本", text: true, v: { t: "hirei_a", x, y: a * x } };
+  }
+  if (t === 2) { // 比例の式に代入
+    const a = nz(-6, 6), x = nz(-6, 6);
+    return { q: `${lineStr(a).replace("=", " = ")} で、x = ${x} のときの y は？`, a: a * x, kind: "超基本", text: true, v: { t: "hirei_y", a, x } };
+  }
+  if (t === 3) { // 反比例の比例定数
+    const a = pickOne(HANPI_A) * pickOne([1, -1]), x = pickOne(divisors(Math.abs(a))) * pickOne([1, -1]);
+    return { q: `y は x に反比例し、x = ${x} のとき y = ${a / x}。比例定数は？`, a, kind: "超基本", text: true, v: { t: "hanpi_a", x, y: a / x } };
+  }
+  // 反比例の式に代入
+  const a = pickOne(HANPI_A), x = pickOne(divisors(a)) * pickOne([1, -1]);
+  return { q: `y = ${a}/x で、x = ${x} のときの y は？`, a: a / x, kind: "超基本", text: true, v: { t: "hanpi_y", a, x } };
+}
+
+function genStd_hirei(level) {
+  const t = rint(1, 6);
+  if (t === 1) { // 比例：別の x のときの y
+    const a = nz(-5, 5), x1 = nz(-4, 4); let x2 = nz(-6, 6); if (x2 === x1) x2 = -x1;
+    return { q: `y は x に比例し、x = ${x1} のとき y = ${a * x1}。x = ${x2} のときの y は？`, a: a * x2, kind: "標準", text: true, v: { t: "hirei_y2", x1, y1: a * x1, x2 } };
+  }
+  if (t === 2) { // 反比例：別の x のときの y
+    const a = pickOne(HANPI_A) * pickOne([1, -1]);
+    const ds = divisors(Math.abs(a));
+    const x1 = pickOne(ds); let x2 = pickOne(ds) * pickOne([1, -1]); if (x2 === x1) x2 = -x1;
+    return { q: `y は x に反比例し、x = ${x1} のとき y = ${a / x1}。x = ${x2} のときの y は？`, a: a / x2, kind: "標準", text: true, v: { t: "hanpi_y2", x1, y1: a / x1, x2 } };
+  }
+  if (t === 3) { // 比例のグラフから式（図つき）
+    const a = pickOne([1, 2, 3, -1, -2, -3]);
+    const x = pickOne([1, 2]); // |a×x| ≤ 6 で図の中に収まる
+    const ans = lineStr(a);
+    const cands = [lineStr(-a), lineStr(a * 2), hyperStr(a * x)];
+    return { q: "このグラフの式はどれ？", a: ans, type: "text", ui: "choice", choices: choices4(ans, cands), kind: "標準",
+      fig: { type: "coord", kind: "line", a, pts: [[x, a * x, `(${x}, ${a * x})`]] }, v: { t: "graph_line", a } };
+  }
+  if (t === 4) { // 反比例のグラフから式（図つき）
+    const a = pickOne([4, 6, 8, -4, -6, -8]); // 選択肢を6文字以内にするため2けたは使わない
+    const x = pickOne(divisors(Math.abs(a)).filter(d => d >= 2 && Math.abs(a / d) <= 6));
+    const ans = hyperStr(a);
+    const cands = [hyperStr(-a), lineStr(a / x > 0 ? 2 : -2), hyperStr(a / 2)];
+    return { q: "このグラフの式はどれ？", a: ans, type: "text", ui: "choice", choices: choices4(ans, cands), kind: "標準",
+      fig: { type: "coord", kind: "hyper", a, pts: [[x, a / x, `(${x}, ${a / x})`]] }, v: { t: "graph_hyper", a } };
+  }
+  if (t === 5) { // グラフ上の点
+    const a = nz(-4, 4), x = nz(-5, 5);
+    return { q: `点(${x}, □)は ${lineStr(a).replace("=", " = ")} のグラフ上にある。□は？`, a: a * x, kind: "標準", text: true, v: { t: "hirei_y", a, x } };
+  }
+  return hireiTerm();
+}
+
+function localExplainHirei(p) {
+  return [
+    "ナイスチャレンジ！👏 いっしょに見直そう。",
+    p.why ? `・${p.why}` : "・比例は y = ax（y ÷ x がいつも同じ）、反比例は y = a/x（x × y がいつも同じ）。",
+    "・まず比例定数 a を求めてから、式に x を入れるとまちがえにくいよ。",
+    `・答えは「${p.a}」。`,
+    "もう一回いける！🌟",
+  ].join("\n");
+}
+
+const EXPLAIN_HIREI =
+  "あなたは中学1年生のための、やさしい数学の先生「マギ先生」です。" +
+  "解説スタイル：①短文で ②箇条書きは行頭に「・」だけ ③むずかしい漢字にはふりがな ④まず良いところを褒める ⑤絶対に責めない・否定しない。" +
+  "重要：マークダウン記号（** や * や # や ```）は絶対に使わない。" +
+  "単元は比例と反比例。比例は y = ax（y÷xが一定）、反比例は y = a/x（x×yが一定）。まず比例定数を求めてから代入する手順を、短い例で示す。" +
+  "1次関数（中2）や放物線（中3）の話には立ち入らない。絵文字は1〜2個までOK。毎回みじかく。";
+
 /* ----- 方程式 v1：1次方程式。答え（解 x）はすべて整数 ----- */
 /* 超基本：ax + b = c の形を無限生成（解は整数）。「…を解くと、x」の後にUIが「=」を付ける */
 function genKihon_houtei(level) {
@@ -1522,8 +2009,111 @@ function localExplainHoutei(p) {
   ].join("\n");
 }
 
+/* ================= 数学：空間図形（フェーズ5）=================
+   ・図（見取図）つきで体積・表面積を求める。円周率をふくむ答えは「36π」の形（単位は問題文に書く）。
+   ・超基本（Lv1-2）：直方体・立方体・円柱の体積、立体の面・辺・頂点の数、回転体
+   ・標準（Lv3〜）：角錐・円錐・球の体積、円柱・立方体・球の表面積、用語
+   ・角錐・円錐は「×1/3」で割り切れる数だけ使う。v（検算用の材料）を持たせ、tools/verify.mjs が計算し直す。 */
+const KUKAN_TERMS = [
+  { q: "三角柱の面の数は？", a: "5", ng: ["3", "6", "9"], why: "三角柱は、三角形2つと長方形3つで5面。" },
+  { q: "三角柱の辺の数は？", a: "9", ng: ["6", "5", "12"], why: "上の三角形3本＋下の三角形3本＋横の3本で9本。" },
+  { q: "三角柱の頂点の数は？", a: "6", ng: ["5", "9", "3"], why: "上の三角形に3つ、下の三角形に3つで6つ。" },
+  { q: "四角錐の面の数は？", a: "5", ng: ["4", "6", "8"], why: "底の四角形1つと、側面の三角形4つで5面。" },
+  { q: "立方体の辺の数は？", a: "12", ng: ["6", "8", "24"], why: "上4本・下4本・たて4本で12本。" },
+  { q: "正多面体は、全部で何種類ある？", a: "5種類", ng: ["4種類", "6種類", "無数"], why: "正四面体・正六面体・正八面体・正十二面体・正二十面体の5種類だけ。" },
+  { q: "長方形を、1辺を軸に1回転させてできる立体は？", a: "円柱", ng: ["円錐", "球", "角柱"], why: "長方形をくるっと回すと円柱になるよ。" },
+  { q: "直角三角形を、直角をはさむ1辺を軸に1回転させてできる立体は？", a: "円錐", ng: ["円柱", "球", "角錐"], why: "直角三角形を回すと、とんがった円錐になるよ。" },
+  { q: "半円を、直径を軸に1回転させてできる立体は？", a: "球", ng: ["円柱", "円錐", "半球"], why: "半円を直径のまわりに回すと球になるよ。" },
+  { q: "立体を真上から見た図を何という？", a: "平面図", ng: ["立面図", "見取図", "展開図"], why: "真上から見た図が平面図、正面から見た図が立面図。" },
+  { q: "立体を正面から見た図を何という？", a: "立面図", ng: ["平面図", "見取図", "展開図"], why: "正面から見た図が立面図、真上から見た図が平面図。" },
+  { q: "角錐の体積は、同じ底面・高さの角柱の何倍？", a: "1/3倍", ng: ["1/2倍", "2倍", "3倍"], why: "錐（すい）の体積は柱の1/3。だから「×1/3」をつけるよ。" },
+];
+
+function kukanTerm() {
+  const d = pickOne(KUKAN_TERMS);
+  return { q: d.q, a: d.a, type: "text", ui: "choice", choices: shuffle([d.a].concat(d.ng)), kind: "用語", why: d.why, text: true };
+}
+/* π をふくむ答えの4択。まちがえやすい値（alts）が重なって足りないときは、近い数で埋める */
+const piChoices = (k, alts) => choices4(piStr(k), alts.concat([k * 2, k + 1, k + 2, k * 3, k + 4])
+  .filter(x => Number.isInteger(x) && x > 0 && x !== k).map(piStr));
+
+function genKihon_kukan(level) {
+  const t = rint(1, 4);
+  if (t === 1) { // 直方体の体積
+    const a = rint(2, 9), b = rint(2, 9), c = rint(2, 9);
+    return { q: `この直方体の体積は何cm³？`, a: a * b * c, kind: "超基本", text: true,
+      fig: { type: "solid", kind: "cuboid", labels: { w: `${a}cm`, h: `${c}cm`, d: `${b}cm` } }, v: { t: "vol_cuboid", a, b, c } };
+  }
+  if (t === 2) { // 立方体の体積
+    const a = rint(2, 9);
+    return { q: `1辺が${a}cmの立方体の体積は何cm³？`, a: a * a * a, kind: "超基本", text: true,
+      fig: { type: "solid", kind: "cube", labels: { w: `${a}cm` } }, v: { t: "vol_cuboid", a, b: a, c: a } };
+  }
+  if (t === 3) { // 円柱の体積
+    const r = rint(1, 6), h = rint(2, 10), k = r * r * h;
+    return { q: "この円柱の体積は何cm³？", a: piStr(k), type: "text", ui: "choice", choices: piChoices(k, [2 * r * h, r * h, k * 2, k + r * r]), kind: "超基本", text: true,
+      fig: { type: "solid", kind: "cylinder", labels: { r: `${r}cm`, h: `${h}cm` } }, v: { t: "vol_cyl", r, h } };
+  }
+  return kukanTerm();
+}
+
+function genStd_kukan(level) {
+  const t = rint(1, 7);
+  if (t === 1) { // 円錐の体積（r²h が3の倍数）
+    let r, h; do { r = rint(2, 6); h = rint(2, 12); } while ((r * r * h) % 3 !== 0);
+    const k = r * r * h / 3;
+    return { q: "この円錐の体積は何cm³？", a: piStr(k), type: "text", ui: "choice", choices: piChoices(k, [r * r * h, k * 2, r * h, k + 3]), kind: "標準", text: true,
+      fig: { type: "solid", kind: "cone", labels: { r: `${r}cm`, h: `${h}cm` } }, v: { t: "vol_cone", r, h } };
+  }
+  if (t === 2) { // 正四角錐の体積（a²h が3の倍数）
+    let a, h; do { a = rint(2, 9); h = rint(2, 12); } while ((a * a * h) % 3 !== 0);
+    return { q: `底面が1辺${a}cmの正方形、高さ${h}cmの正四角錐の体積は何cm³？`, a: a * a * h / 3, kind: "標準", text: true,
+      fig: { type: "solid", kind: "pyramid", labels: { base: `${a}cm`, h: `${h}cm` } }, v: { t: "vol_pyr", base: a * a, h } };
+  }
+  if (t === 3) { // 球の体積（r = 3, 6 で割り切れる）
+    const r = pickOne([3, 6]), k = 4 * r * r * r / 3;
+    return { q: `半径${r}cmの球の体積は何cm³？`, a: piStr(k), type: "text", ui: "choice", choices: piChoices(k, [4 * r * r, r * r * r, k * 2, 4 * r * r * r]), kind: "標準", text: true,
+      fig: { type: "solid", kind: "sphere", labels: { r: `${r}cm` } }, v: { t: "vol_sphere", r } };
+  }
+  if (t === 4) { // 球の表面積
+    const r = rint(1, 6), k = 4 * r * r;
+    return { q: `半径${r}cmの球の表面積は何cm²？`, a: piStr(k), type: "text", ui: "choice", choices: piChoices(k, [2 * r * r, r * r, 4 * r, 8 * r * r]), kind: "標準", text: true,
+      fig: { type: "solid", kind: "sphere", labels: { r: `${r}cm` } }, v: { t: "surf_sphere", r } };
+  }
+  if (t === 5) { // 円柱の表面積
+    const r = rint(1, 5), h = rint(2, 8), k = 2 * r * r + 2 * r * h;
+    return { q: "この円柱の表面積は何cm²？", a: piStr(k), type: "text", ui: "choice", choices: piChoices(k, [r * r * h, 2 * r * h, r * r + 2 * r * h, 2 * r * r + r * h]), kind: "標準", text: true,
+      fig: { type: "solid", kind: "cylinder", labels: { r: `${r}cm`, h: `${h}cm` } }, v: { t: "surf_cyl", r, h } };
+  }
+  if (t === 6) { // 立方体の表面積
+    const a = rint(2, 9);
+    return { q: `1辺が${a}cmの立方体の表面積は何cm²？`, a: 6 * a * a, kind: "標準", text: true,
+      fig: { type: "solid", kind: "cube", labels: { w: `${a}cm` } }, v: { t: "surf_cube", a } };
+  }
+  return kukanTerm();
+}
+
+function localExplainKukan(p) {
+  return [
+    "ナイスチャレンジ！👏 いっしょに見直そう。",
+    p.why ? `・${p.why}` : "・柱の体積＝底面積×高さ、錐の体積＝底面積×高さ×1/3、球の体積＝4/3×π×r³。",
+    "・円の面積は π×半径×半径。円周率はπのまま残して答えるよ。",
+    `・答えは「${p.a}」。`,
+    "もう一回いける！🌟",
+  ].join("\n");
+}
+
+const EXPLAIN_KUKAN =
+  "あなたは中学1年生のための、やさしい数学の先生「マギ先生」です。" +
+  "解説スタイル：①短文で ②箇条書きは行頭に「・」だけ ③むずかしい漢字にはふりがな ④まず良いところを褒める ⑤絶対に責めない・否定しない。" +
+  "重要：マークダウン記号（** や * や # や ```）は絶対に使わない。" +
+  "単元は空間図形（立体の面・辺・頂点、回転体、投影図、柱・錐・球の体積と表面積）。公式は「底面積×高さ（錐は×1/3）」のように言葉で示し、円周率πはそのまま残して答えることを伝える。" +
+  "三平方の定理（中3）など中1で習わない考え方には立ち入らない。絵文字は1〜2個までOK。毎回みじかく。";
+
 /* 共通：標準プールからランダムに1問選ぶ */
 const genFromPool = (pool) => ({ ...pool[rint(0, pool.length - 1)], kind: "標準" });
+/* フェーズ5の単元：用語の表を、うまく作れなかったときの予備プール（4択）にする */
+const termPool = (terms) => terms.map(d => ({ q: d.q, a: d.a, type: "text", ui: "choice", choices: shuffle([d.a].concat(d.ng)), why: d.why, text: true }));
 
 /* 単元データ本体。Battle はここを見て問題・ボス名・解説を切り替える */
 const MATH_UNITS = {
@@ -1548,9 +2138,33 @@ const MATH_UNITS = {
     genOyou: (lv) => genOyou(lv, HOUTEI_OYOU_SYS),
     explain: EXPLAIN_HOUTEI, localExplain: localExplainHoutei,
   },
+  hirei: {
+    name: "比例と反比例", bossName: "グラフ・ファントム",
+    tokens: ["y=ax", "x", "y", "a", "(2,4)", "O", "y=6/x", "-x"],
+    genKihon: genKihon_hirei, pool: termPool(HIREI_TERMS), genStd: genStd_hirei, genOyou: null,
+    explain: EXPLAIN_HIREI, localExplain: localExplainHirei,
+  },
+  heimen: {
+    name: "平面図形", bossName: "コンパス・レイス",
+    tokens: ["π", "⊥", "//", "弧", "弦", "90°", "r", "360°"],
+    genKihon: genKihon_heimen, pool: termPool(HEIMEN_TERMS), genStd: genStd_heimen, genOyou: null,
+    explain: EXPLAIN_HEIMEN, localExplain: localExplainHeimen,
+  },
+  kukan: {
+    name: "空間図形", bossName: "ヴォイド・キューブ",
+    tokens: ["cm³", "π", "1/3", "面", "辺", "r", "h", "球"],
+    genKihon: genKihon_kukan, pool: termPool(KUKAN_TERMS), genStd: genStd_kukan, genOyou: null,
+    explain: EXPLAIN_KUKAN, localExplain: localExplainKukan,
+  },
+  data: {
+    name: "データの活用", bossName: "ノイズ・ゴーレム",
+    tokens: ["平均", "中央", "最頻", "範囲", "度数", "0.25", "%", "階級"],
+    genKihon: genKihon_data, pool: termPool(DATA_TERMS), genStd: genStd_data, genOyou: null,
+    explain: EXPLAIN_DATA, localExplain: localExplainData,
+  },
 };
 /* 部屋の並び順（試練の間の上から）。i 番目 → 単元キー */
-const MATH_UNIT_KEYS = ["seifu", "moji", "houtei"];
+const MATH_UNIT_KEYS = ["seifu", "moji", "houtei", "hirei", "heimen", "kukan", "data"];
 
 /* ================= 教科ごとの単元（部屋）の表 =================
    数学は 38_math_units.jsx の MATH_UNITS（つくり方がちがうので別）。それ以外の教科はこのファイル。
@@ -1679,6 +2293,10 @@ const STR = {
       { name: "暗黒の数字の間", sub: "正負の数 / ボス：ダーク・ナンバー" },
       { name: "文字式の回廊", sub: "式の値（代入）/ ボス：シャドウ・レター" },
       { name: "方程式の聖堂", sub: "1次方程式 / ボス：バランス・ロード" },
+      { name: "双曲の観測塔", sub: "比例と反比例 / ボス：グラフ・ファントム" },
+      { name: "円環の作図室", sub: "平面図形 / ボス：コンパス・レイス" },
+      { name: "虚空の立体迷宮", sub: "空間図形 / ボス：ヴォイド・キューブ" },
+      { name: "散らばる記録庫", sub: "データの活用 / ボス：ノイズ・ゴーレム" },
     ],
     englishRooms: [
       { name: "言霊の鏡の間", sub: "be動詞（am・is・are）/ ボス：ミステイク・スペクター" },
@@ -1785,8 +2403,12 @@ const PROGRESS = [
     { t: "英語・国語・理科・社会の問題数を増やす", done: true },
   ]},
   { phase: "フェーズ5：単元を増やす", items: [
-    { t: "学校の進度に合わせて各教科の単元を追加", done: false },
-    { t: "社会の歴史分野（東京書籍）", done: false },
+    { t: "全教科を「試練の間」に・単元の表を共通化", done: true },
+    { t: "数学：比例と反比例／平面図形／空間図形／データの活用（図つき）", done: true },
+    { t: "英語：一般動詞／can／三人称単数／疑問詞／現在進行形／過去形", done: false },
+    { t: "理科：動物のなかま／身のまわりの物質／光・音・力／大地の変化", done: false },
+    { t: "社会（地理）：日本の姿／人々の生活と環境／世界の諸地域", done: false },
+    { t: "社会（歴史・東京書籍）：古代／中世", done: false },
   ]},
   { phase: "フェーズ6：整理", items: [
     { t: "多言語対応の仕上げ（残りの画面を t() に）", done: false },
@@ -2387,12 +3009,13 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
     } else {
       const roll = Math.random();
       try {
-        if (!noAi && lv >= 5 && roll < 0.5) p = await U.genOyou(lv);
+        if (!noAi && U.genOyou && lv >= 5 && roll < 0.5) p = await U.genOyou(lv);
         else if (lv >= 3 && roll < 0.7) p = U.genStd ? U.genStd(lv) : genFromPool(U.pool); // 標準：型＋ランダムな数
         else p = U.genKihon(lv);
       } catch { p = genFromPool(U.pool); }
-      p.type = "number";
-      p.ui = pickAnswerMode(lv, p.a);
+      // フェーズ5の単元（比例・データ・図形）は type / ui / choices を問題側で持つことがある
+      p.type = p.type || "number";
+      p.ui = p.ui || (p.type === "number" ? pickAnswerMode(lv, p.a) : "choice");
     }
     return p;
   }
@@ -2510,8 +3133,9 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
             <span style={{ fontSize: 12, fontWeight: 800, color: C.bg0, background: C.butter, padding: "3px 10px", borderRadius: 999 }}>{problem.kind}</span>
             <span style={{ fontSize: 12, color: C.inkDim }}>{t("attackHint")}</span>
           </div>
-          <div style={{ textAlign: "center", fontSize: problem.type === "number" ? 28 : 22, fontWeight: 900, margin: "10px 0 18px", letterSpacing: problem.type === "number" ? 1 : 0 }}>
-            {mode === "arrange" ? t("arrangeHint") : <><MarkedText text={problem.q} mark={problem.mark} />{(problem.type === "number" && problem.kind !== "応用") ? " =" : ""}</>}
+          <Figure fig={problem.fig} />
+          <div style={{ textAlign: "center", fontSize: problem.text ? 18 : problem.type === "number" ? 28 : 22, fontWeight: 900, margin: "10px 0 18px", letterSpacing: problem.type === "number" && !problem.text ? 1 : 0, lineHeight: problem.text ? 1.6 : undefined }}>
+            {mode === "arrange" ? t("arrangeHint") : <><MarkedText text={problem.q} mark={problem.mark} />{(problem.type === "number" && problem.kind !== "応用" && !problem.text) ? " =" : ""}</>}
           </div>
           {mode === "arrange" ? (
             <div>
