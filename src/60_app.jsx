@@ -7,7 +7,7 @@ export default function Rinogical() {
   // coins は全科目共通。level/xp は科目ごと（数学・英語…）に分けて持つ
   const [player, setPlayer] = useState({ coins: 0, subjects: { math: { level: 1, xp: 0 }, english: { level: 1, xp: 0 }, kokugo: { level: 1, xp: 0 }, rika: { level: 1, xp: 0 }, shakai: { level: 1, xp: 0 } } });
   const [subject, setSubject] = useState("math"); // いまプレイ中の科目
-  const [unit, setUnit] = useState("seifu");       // 数学のいまの単元（正負の数 / 文字式 …）
+  const [unit, setUnit] = useState("seifu");       // いまの単元（数学：正負の数 / 文字式 … 国語：漢字 …）
   const [battleReturn, setBattleReturn] = useState("trials"); // バトル後の戻り先
   const prog = (player.subjects && player.subjects[subject]) || { level: 1, xp: 0 };
   const deviceIdRef = useRef(null);
@@ -116,10 +116,11 @@ export default function Rinogical() {
         {screen === "home" && <SubjectHome char={character} coins={player.coins} nickname={nickname}
           onMath={() => { setSubject("math"); setScreen("trials"); }}
           onEnglish={() => { setSubject("english"); setBattleReturn("home"); setScreen("battle"); }}
-          onKokugo={() => { setSubject("kokugo"); setBattleReturn("home"); setScreen("battle"); }}
+          onKokugo={() => { setSubject("kokugo"); setScreen("trials"); }}
           onRika={() => { setSubject("rika"); setBattleReturn("home"); setScreen("battle"); }}
           onShakai={() => { setSubject("shakai"); setBattleReturn("home"); setScreen("battle"); }} />}
-        {screen === "trials" && <Home char={character} level={prog.level} coins={player.coins} nickname={nickname} onBoss={(i) => { setUnit(MATH_UNIT_KEYS[i] || "seifu"); setBattleReturn("trials"); setScreen("battle"); }} onBack={() => setScreen("home")} />}
+        {screen === "trials" && <Home char={character} level={prog.level} coins={player.coins} nickname={nickname} subjectKey={subject}
+          onBoss={(i) => { const R = SUBJECT_ROOMS[subject] || SUBJECT_ROOMS.math; setUnit(R.keys[i] || R.keys[0]); setBattleReturn("trials"); setScreen("battle"); }} onBack={() => setScreen("home")} />}
         {screen === "battle" && (
           <Battle char={character} player={player} setPlayer={setPlayer} subjectKey={subject} unitKey={unit} prog={prog} nickname={nickname}
             onWin={() => setScreen("victory")} onHome={() => setScreen(battleReturn)} />

@@ -43,11 +43,11 @@ function SubjectHome({ char, coins, nickname, onMath, onEnglish, onKokugo, onRik
 }
 
 /* ---------- ホーム（試練の間）---------- */
-function Home({ char, level, coins, nickname, onBoss, onBack }) {
+function Home({ char, level, coins, nickname, onBoss, onBack, subjectKey = "math" }) {
   const [devOpen, setDevOpen] = useState(false);
-  // 開放フラグだけコード側に残し、name/sub は辞書（t("rooms")）から取る
-  const roomOpen = [true, true, true];
-  const rooms = t("rooms").map((r, i) => ({ ...r, open: roomOpen[i] }));
+  // 部屋の並びは SUBJECT_ROOMS（39_kokugo_units.jsx）、name/sub は辞書（t(roomsKey)）から取る
+  const R = SUBJECT_ROOMS[subjectKey] || SUBJECT_ROOMS.math;
+  const rooms = t(R.roomsKey).map((r, i) => ({ ...r, open: i < R.keys.length }));
   return (
     <div style={{ animation: "rino-pop .4s ease", position: "relative", minHeight: 520 }}>
       <HUD level={level} coins={coins} name={nickname} />

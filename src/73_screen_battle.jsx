@@ -20,8 +20,12 @@ function MarkedText({ text, mark }) {
 function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, onWin, onHome }) {
   // 数学のときは単元（正負の数 / 文字式 …）の設定 U を読む。英語のときは U=null。
   const U = subjectKey === "math" ? (MATH_UNITS[unitKey] || MATH_UNITS.seifu) : null;
+  // 国語のときは部屋（漢字 …）の設定 KU を読む（39_kokugo_units.jsx）
+  const KU = subjectKey === "kokugo" ? (KOKUGO_UNITS[unitKey] || KOKUGO_UNITS.kanji) : null;
   const meta = U
     ? { ...SUBJECT_META.math, bossName: U.bossName, tokens: U.tokens, explain: U.explain }
+    : KU
+    ? { ...SUBJECT_META.kokugo, bossName: KU.bossName, tokens: KU.tokens, explain: KU.explain }
     : (SUBJECT_META[subjectKey] || SUBJECT_META.math);
   const [bossHP, setBossHP] = useState(BOSS_HP);
   const [hp, setHp] = useState(PLAYER_HP);
@@ -45,7 +49,7 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
     if (subjectKey === "english") {
       p = genEnglishProblem(lv);
     } else if (subjectKey === "kokugo") {
-      p = genKokugoProblem(lv);
+      p = KU.gen(lv);
     } else if (subjectKey === "rika") {
       p = genRikaProblem(lv);
     } else if (subjectKey === "shakai") {
@@ -79,7 +83,7 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
       convo.current.push({ role: "assistant", content: txt });
       setExplain(txt);
     } catch {
-      setExplain(subjectKey === "english" ? localExplainEn(problem) : subjectKey === "kokugo" ? localExplainKokugo(problem) : subjectKey === "rika" ? localExplainRika(problem) : subjectKey === "shakai" ? localExplainShakai(problem) : (U ? U.localExplain(problem) : localExplain(problem)));
+      setExplain(subjectKey === "english" ? localExplainEn(problem) : subjectKey === "kokugo" ? KU.localExplain(problem) : subjectKey === "rika" ? localExplainRika(problem) : subjectKey === "shakai" ? localExplainShakai(problem) : (U ? U.localExplain(problem) : localExplain(problem)));
     } finally { setExplaining(false); }
   }
 
@@ -260,7 +264,7 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
               onEasier={() => fetchExplain(subjectKey === "english"
                 ? "「もっとかんたんに」と言われました。主語による be動詞の見分け方を、別の身近な言い方で、いちばんやさしく説明して。同じ説明のくり返しは避けて。"
                 : subjectKey === "kokugo"
-                ? "「もっとかんたんに」と言われました。その漢字の覚え方を、別の切り口（へん・つくりの意味、にた形の漢字とのくらべ方、送りがなの見分け方など）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。"
+                ? KU.easier
                 : subjectKey === "rika"
                 ? "「もっとかんたんに」と言われました。その用語の覚え方を、別の切り口（名前の漢字の意味、対になる用語とのセット、身近な植物での例えなど）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。中学1年で習わない光合成や蒸散のくわしい話には立ち入らないで。"
                 : subjectKey === "shakai"
