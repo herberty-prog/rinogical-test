@@ -118,7 +118,7 @@
 | `37_math_houtei.jsx` | 方程式ひとそろい |
 | `38_math_units.jsx` ★ | `genFromPool` / `MATH_UNITS` / `MATH_UNIT_KEYS` |
 | `40_i18n.jsx` | `LANG` / `STR`（辞書）/ `t()` ← ①の作業はここが中心。案内文は用途ごとに別キー（`inputHint`＝数値入力／`inputHintText`＝文字入力／`arrangeHint`＝ならべかえの見出し／`arrangeTrayHint`＝札を置く枠が空のとき）。**1本にまとめ直さないこと** |
-| `45_dev_panel.jsx` | `DEV_PANEL_ENABLED` / `PROGRESS` / `AccountBox`（親用：メール登録・ログイン）/ `DeviceTransfer`（セーブの引き継ぎ：端末IDの表示・コピー・切り替え）/ `DevPanel`。⚠ セーブ本体はFirestoreの `users/{端末ID}`、端末IDは端末のlocalStorage（`rino_device_id`）にだけある。**ホーム画面のアイコンを消すと端末IDが消えて新規扱いになる**（2026-10-31に実際に発生）。戻すにはFirebaseコンソールで元のIDを探し、devパネルの「セーブの引き継ぎ」に貼る。`DEV_PANEL_ENABLED` を false にするとこの機能も消えるので、そのときは別の場所へ移すこと |
+| `45_dev_panel.jsx` | `DEV_PANEL_ENABLED` / `PROGRESS` / `AccountBox`（親用：メール登録・ログイン）/ `DeviceTransfer`（セーブの引き継ぎ：端末IDの表示・コピー・切り替え）/ `DevPanel`。⚠ セーブ本体はFirestoreの `users/{uid}`（2026-11-20〜。それ以前は `users/{端末ID}`）。ログイン状態は端末にだけあるので、**ホーム画面のアイコンを消すと匿名のままのセーブには戻れない**（2026-10-31に端末ID方式で実際に発生）。メール登録済みなら「登録済みのメールでログイン」で戻れる。ルールのロック後は「セーブの引き継ぎ」は効かない（端末ID側が読めないため）。`DEV_PANEL_ENABLED` を false にするとこの機能も消えるので、そのときは別の場所へ移すこと |
 | `50_hud.jsx` | `HUD` / `Pill` / `Btn` |
 | `60_app.jsx` | `Rinogical`（メイン。画面の出し分け・セーブ処理）**`export default` はここ1行だけ**（ビルド時に自動で外れる） |
 | `70_screen_start.jsx` | `Loading` / `CHARACTERS` / `CharacterSelect` / `NameInput` / `Tutorial` |
@@ -138,7 +138,7 @@
    - 構文エラーがあると Actions が失敗して index.html は更新されない（公開中の画面は壊れない）。push 後は Actions の結果が ✅ になったかを確認する。
    - Actions が index.html をコミットするので、続けて作業する前に `git pull` すること。
 5. テスト用 `rinogical-test` で実機確認 → 問題なければ本番 `rinogical` へ（本人の「本番に出して」の指示があったときだけ。`index.html` と `assets/` などを本番リポジトリへコピーして push）。
-   - iPhone はキャッシュが残りやすい。**ホーム画面に追加したアイコンは一度削除して追加し直す**こと（さもないと古い版を見て「OK」と誤判定する）。
+   - iPhone はキャッシュが残りやすい。反映の確認は**アプリを上スワイプで終了して開き直す**。GitHub Pages は公開後10分ほど古い版を配ることがあるので、変わらなければ少し待つ。⚠ **アイコンの削除はしない**（メール未登録のセーブには戻れなくなる）。
 
 ## 動作を変えない整理をするときのやり方（分割で有効だった手順）
 1. 変更前の `index.html` をバックアップ（`index.verNN.html`）。
