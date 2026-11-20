@@ -4,68 +4,85 @@
    =========================================================================== */
 const DEV_PANEL_ENABLED = true;
 
+/* 進捗チェックリスト。最新の設計図＝CLAUDE.md「開発ロードマップ（最新の設計図）」と同じ並び・同じ内容にそろえること。
+   future: true のグループは「時期未定の構想」なので、上の「全体 ○/○ 完了」の数には入れない。 */
 const PROGRESS = [
-  { phase: "Phase 1", items: [
+  { phase: "土台（できていること）", items: [
     { t: "ローディング画面＋豆知識", done: true },
-    { t: "キャラクター選択（2体）", done: true },
-    { t: "ニックネーム入力", done: true },
-    { t: "チュートリアル", done: true },
-    { t: "ホーム画面（試練の間）", done: true },
-    { t: "バトル画面（正負の数）", done: true },
-    { t: "超基本・標準・応用問題", done: true },
-    { t: "Claude AI解説（マギ先生）", done: true },
-    { t: "なんで？・もっとかんたんに2段階", done: true },
-    { t: "コイン・レベルシステム", done: true },
-    { t: "勝利画面", done: true },
-    { t: "Firebase連携（データ保存）", done: true },
-    { t: "PWA対応", done: false },
-    { t: "Lottieアニメーション", done: false },
-    { t: "キャラクター6種類", done: false },
-    { t: "音・BGM", done: false },
+    { t: "キャラクター選択（2体）・ニックネーム・チュートリアル", done: true },
+    { t: "科目選択ホーム＋試練の間（単元選択）", done: true },
+    { t: "バトル（4択・数値入力・ならべかえ）", done: true },
+    { t: "AI解説（先生ごと・なんで？／もっとかんたんに）", done: true },
+    { t: "コイン・レベル（科目ごと）・勝利画面", done: true },
+    { t: "5教科：数学3単元・英語・国語（漢字）・理科（植物）・社会（世界の姿）", done: true },
+    { t: "PWA（ホーム画面に追加）", done: true },
+    { t: "Lottieアニメ（キャラの待機）", done: true },
+    { t: "ファイル分割＋push時の自動ビルド", done: true },
+    { t: "iPhoneの全画面表示の調整", done: true },
   ]},
-  { phase: "Phase 2", items: [
-    { t: "全科目ホーム画面UI", done: false },
-    { t: "ホーム画面背景6種類", done: false },
-    { t: "文字サイズ設定（小・中・大）", done: false },
-    { t: "夜間モード", done: false },
-    { t: "ヘルプ機能", done: false },
+  { phase: "フェーズ0：セキュリティ（ログイン・ロック）", items: [
+    { t: "匿名ログイン＋セーブの自動引っ越し", done: true },
+    { t: "メール＋パスワードの登録・ログイン", done: true },
+    { t: "Firestoreのルールをロック（本人だけ読み書き）", done: true },
+    { t: "メールアドレス変更・パスワード再設定", done: false },
+    { t: "娘のアカウント登録（娘のiPhoneで）", done: false },
   ]},
-  { phase: "Phase 3", items: [
-    { t: "ゲームシステム強化（ショップ・レアリティ）", done: false },
-    { t: "Lottieアニメーション本実装", done: false },
-    { t: "ボス戦強化（難易度選択・タイムアタック）", done: false },
+  { phase: "フェーズ1：国語の構造整理＋語彙", items: [
+    { t: "国語を2段構成に（科目→単元選択→バトル）", done: false },
+    { t: "語彙ユニット（対義語・類義語・四字熟語）", done: false },
+  ]},
+  { phase: "フェーズ2：国語の文法・古文", items: [
+    { t: "文法（品詞・敬語の基本）", done: false },
+    { t: "古文（歴史的仮名遣い・有名な冒頭文）", done: false },
+  ]},
+  { phase: "フェーズ3：検証のしくみ＋漢字の差し替え", items: [
+    { t: "問題の自動チェック（正解が1つか・選択肢の重複など）", done: false },
+    { t: "漢字を中1の392字から50字ずつ差し替え", done: false },
+  ]},
+  { phase: "フェーズ4：問題数を増やす", items: [
+    { t: "数学を型・数値生成で100問以上に", done: false },
+    { t: "選択肢のシャッフル（丸暗記の防止）", done: false },
+    { t: "英語・国語・理科・社会の問題数を増やす", done: false },
+  ]},
+  { phase: "フェーズ5：単元を増やす", items: [
+    { t: "学校の進度に合わせて各教科の単元を追加", done: false },
+    { t: "社会の歴史分野（東京書籍）", done: false },
+  ]},
+  { phase: "フェーズ6：整理", items: [
+    { t: "多言語対応の仕上げ（残りの画面を t() に）", done: false },
+    { t: "単元・教科の並べ替え", done: false },
+  ]},
+  { phase: "フェーズ7：読解ユニット", items: [
+    { t: "設計を決める（短文4択か、読解の間か）", done: false },
+    { t: "実装（規模は設計のあとで判断）", done: false },
+  ]},
+  { phase: "フェーズ8：親の確認画面", items: [
+    { t: "何を表示するか決める打ち合わせ", done: false },
+    { t: "親の確認画面を作る", done: false },
+  ]},
+  { phase: "並行：素材", items: [
+    { t: "キャラクター2体の画像", done: true },
+    { t: "先生7人の画像", done: true },
+    { t: "背景（冒険）1枚", done: true },
+    { t: "ボスの絵：ダーク・ナンバー", done: true },
+    { t: "残りのボスの絵", done: false },
+    { t: "科目ごとの背景", done: false },
+  ]},
+  { phase: "将来の構想（最初の仕様書より・時期未定）", future: true, items: [
+    { t: "音・BGM（オン/オフ）", done: false },
+    { t: "文字サイズ・夜間モード・ヘルプ", done: false },
+    { t: "キャラクターを6種類に", done: false },
+    { t: "ショップ・レアリティ", done: false },
+    { t: "ボス戦の強化（難易度・タイムアタック）", done: false },
     { t: "復習モード・間違いノート", done: false },
     { t: "気分転換ミニゲーム", done: false },
-    { t: "目標設定システム", done: false },
-    { t: "救済カード", done: false },
-  ]},
-  { phase: "Phase 4", items: [
-    { t: "英語追加（光村図書）", done: false },
-    { t: "国語追加（光村図書）", done: false },
-    { t: "理科追加（東京書籍）", done: false },
-    { t: "社会追加（帝国書院・東京書籍）", done: false },
-    { t: "各科目の背景・先生キャラ追加", done: false },
-  ]},
-  { phase: "Phase 5", items: [
-    { t: "親画面（別URL）", done: false },
-    { t: "進捗管理・能力レベル判定", done: false },
-    { t: "Firebase完全連携", done: false },
-    { t: "プリント読取（Claude API）", done: false },
-    { t: "成長アルバム", done: false },
-  ]},
-  { phase: "Phase 6", items: [
-    { t: "音・BGM（オン/オフ切替）", done: false },
-    { t: "LINE週次レポート", done: false },
-    { t: "通知機能", done: false },
-    { t: "デイリーボーナス", done: false },
-    { t: "親子メッセージ機能", done: false },
-    { t: "API費用表示", done: false },
-  ]},
-  { phase: "Phase 7", items: [
-    { t: "AI世界・お金の授業", done: false },
-    { t: "マルチユーザー対応", done: false },
-    { t: "Stripe決済・サブスク化", done: false },
-    { t: "次女アカウント追加", done: false },
+    { t: "目標設定・救済カード", done: false },
+    { t: "デイリーボーナス・通知", done: false },
+    { t: "LINE週次レポート・API費用表示", done: false },
+    { t: "成長アルバム・親子メッセージ", done: false },
+    { t: "プリント読み取り（AI）", done: false },
+    { t: "AI・お金の授業（ナビス先生・ルーナ先生）", done: false },
+    { t: "次女向け（小学生版は別リポジトリの予定）", done: false },
   ]},
 ];
 
@@ -168,7 +185,7 @@ function AccountBox() {
 }
 
 function DevPanel({ onClose }) {
-  const allItems = PROGRESS.flatMap(p => p.items);
+  const allItems = PROGRESS.filter(p => !p.future).flatMap(p => p.items);
   const doneAll = allItems.filter(i => i.done).length;
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(8,5,20,.82)",
