@@ -39,8 +39,38 @@ const ENGLISH_UNITS = {
     gen: genEnglishProblem, explain: ENGLISH_EXPLAIN_SYSTEM, localExplain: localExplainEn,
     easier: "「もっとかんたんに」と言われました。主語による be動詞の見分け方を、別の身近な言い方で、いちばんやさしく説明して。同じ説明のくり返しは避けて。",
   },
+  ippan: {
+    name: "一般動詞", bossName: "アイドル・ゴーレム", tokens: ["play", "like", "do", "don't", "have", "go", "?", "eat"],
+    gen: genEnIppan, explain: EN_IPPAN_SYSTEM, localExplain: enLocalExplain("ippan"),
+    easier: "「もっとかんたんに」と言われました。be動詞の文と一般動詞の文のちがいを、身近な短い例文2つでくらべて、いちばんやさしく説明して。同じ説明のくり返しは避けて。",
+  },
+  can: {
+    name: "can", bossName: "ロックド・ゲート", tokens: ["can", "can't", "Can", "swim", "run", "?", "fast", "well"],
+    gen: genEnCan, explain: EN_CAN_SYSTEM, localExplain: enLocalExplain("can"),
+    easier: "「もっとかんたんに」と言われました。can のあとの動詞はいつももとの形になることを、「can は動詞の前に立つカギ」のようなたとえで、いちばんやさしく説明して。同じ説明のくり返しは避けて。",
+  },
+  sansho: {
+    name: "三人称単数", bossName: "エス・サーペント", tokens: ["s", "es", "ies", "has", "does", "he", "she", "Tom"],
+    gen: genEnSansho, explain: EN_SANSHO_SYSTEM, localExplain: enLocalExplain("sansho"),
+    easier: "「もっとかんたんに」と言われました。「自分と相手以外の1人・1つが主語なら動詞に s」のルールを、身近な人を主語にした短い例文で、いちばんやさしく説明して。同じ説明のくり返しは避けて。",
+  },
+  gimon: {
+    name: "疑問詞", bossName: "ハテナ・ウィスプ", tokens: ["What", "Who", "Where", "When", "How", "Whose", "?", "?"],
+    gen: genEnWh, explain: EN_WH_SYSTEM, localExplain: localExplainEnWh,
+    easier: "「もっとかんたんに」と言われました。答えの文のどこを見れば疑問詞が決まるかを、場所・時・人・ものの4つに分けて、いちばんやさしく説明して。同じ説明のくり返しは避けて。",
+  },
+  shinkou: {
+    name: "現在進行形", bossName: "ナウ・ループ", tokens: ["ing", "now", "am", "is", "are", "-ing", "...", "now"],
+    gen: genEnShinkou, explain: EN_SHINKOU_SYSTEM, localExplain: enLocalExplain("shinkou"),
+    easier: "「もっとかんたんに」と言われました。「いつもすること」と「いま、しているところ」のちがいを、身近な短い例文2つでくらべて、いちばんやさしく説明して。同じ説明のくり返しは避けて。",
+  },
+  kako: {
+    name: "過去形", bossName: "メモリー・レイス", tokens: ["ed", "did", "was", "were", "went", "ate", "made", "had"],
+    gen: genEnKako, explain: EN_KAKO_SYSTEM, localExplain: enLocalExplain("kako"),
+    easier: "「もっとかんたんに」と言われました。yesterday などの『過去のしるし』を見つけたら動詞を過去形にする、という見分け方を、短い例文で、いちばんやさしく説明して。同じ説明のくり返しは避けて。",
+  },
 };
-const ENGLISH_UNIT_KEYS = ["be"];
+const ENGLISH_UNIT_KEYS = ["be", "ippan", "can", "sansho", "gimon", "shinkou", "kako"];
 
 /* ---- 理科 ---- */
 const RIKA_UNITS = {

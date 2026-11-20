@@ -141,6 +141,8 @@ function checkMath(unit, p) {
   return null;
 }
 
+const textWidth = (x) => [...String(x)].reduce((w, ch) => w + (ch.charCodeAt(0) < 0x2000 ? 0.6 : 1), 0);
+
 /* ---- 1問ぶんのチェック ---- */
 function checkProblem(p, where, fails, opt = {}) {
   if (!p || p.a === undefined || p.a === null || p.a === "") { fails.push(`${where} 答え(a)が空`); return; }
@@ -150,7 +152,8 @@ function checkProblem(p, where, fails, opt = {}) {
     if (c.length !== 4) fails.push(`${where} 選択肢が4つでない（${c.length}個）`);
     if (new Set(c.map(String)).size !== c.length) fails.push(`${where} 選択肢が重複 ${JSON.stringify([...c].map(String).sort())}`);
     if (c.filter(x => String(x) === String(p.a)).length !== 1) fails.push(`${where} 正解が選択肢にちょうど1つ入っていない ${JSON.stringify([...c].map(String).sort())}`);
-    if (p.type !== "number") for (const x of c) if ([...String(x)].length > 6) fails.push(`${where} 選択肢が6文字をこえる「${x}」`);
+    // 6文字＝全角6字ぶんの幅。英字・数字・記号（半角）は0.6字ぶんとして数える（"swimming" は 4.8字ぶん）
+    if (p.type !== "number") for (const x of c) if (textWidth(x) > 6) fails.push(`${where} 選択肢が6文字をこえる「${x}」`);
   }
   if (ui === "arrange") {
     // 札（"My friends" のように空白入りの札もある）を何かの順にならべて、スペースでつなぐと正解になるか
