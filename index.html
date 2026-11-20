@@ -1126,6 +1126,28 @@ const MATH_UNITS = {
 /* 部屋の並び順（試練の間の上から）。i 番目 → 単元キー */
 const MATH_UNIT_KEYS = ["seifu", "moji", "houtei"];
 
+/* ================= 国語の単元（部屋）の表 =================
+   数学の MATH_UNITS（38_math_units.jsx）と同じ考え方。Battle は unitKey でここを引き、
+   問題の作り方・ボス名・解説を部屋ごとに切り替える。
+   部屋を足すときは：①ここに1項目足す ②KOKUGO_UNIT_KEYS に並べる ③40_i18n.jsx の kokugoRooms に部屋名を足す。
+   レベル・XPは部屋ごとに分けず、国語全体で1つ（数学と同じ）。 */
+const KOKUGO_UNITS = {
+  kanji: {
+    name: "漢字", bossName: SUBJECT_META.kokugo.bossName, tokens: SUBJECT_META.kokugo.tokens,
+    gen: genKokugoProblem, explain: KOKUGO_EXPLAIN_SYSTEM, localExplain: localExplainKokugo,
+    easier: "「もっとかんたんに」と言われました。その漢字の覚え方を、別の切り口（へん・つくりの意味、にた形の漢字とのくらべ方、送りがなの見分け方など）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。",
+  },
+};
+/* 部屋の並び順（試練の間の上から）。i 番目 → 単元キー */
+const KOKUGO_UNIT_KEYS = ["kanji"];
+
+/* 試練の間（単元選択）を持つ教科の一覧。ここに無い教科は「科目選択→すぐバトル」のまま。
+   roomsKey は 40_i18n.jsx の部屋名リストのキー。 */
+const SUBJECT_ROOMS = {
+  math: { keys: MATH_UNIT_KEYS, roomsKey: "rooms" },
+  kokugo: { keys: KOKUGO_UNIT_KEYS, roomsKey: "kokugoRooms" },
+};
+
 /* ===========================================================================
    多言語の土台（i18n）
    - 画面に出る文章は、すべてこの STR 辞書にまとめる。
@@ -1179,6 +1201,9 @@ const STR = {
       { name: "暗黒の数字の間", sub: "正負の数 / ボス：ダーク・ナンバー" },
       { name: "文字式の回廊", sub: "式の値（代入）/ ボス：シャドウ・レター" },
       { name: "方程式の聖堂", sub: "1次方程式 / ボス：バランス・ロード" },
+    ],
+    kokugoRooms: [
+      { name: "沈黙の書庫", sub: "漢字の読み書き / ボス：サイレント・ワード" },
     ],
     bossName: "ダーク・ナンバー",
     bossHP: "ボスHP",
@@ -1486,7 +1511,7 @@ function Rinogical() {
   // coins は全科目共通。level/xp は科目ごと（数学・英語…）に分けて持つ
   const [player, setPlayer] = useState({ coins: 0, subjects: { math: { level: 1, xp: 0 }, english: { level: 1, xp: 0 }, kokugo: { level: 1, xp: 0 }, rika: { level: 1, xp: 0 }, shakai: { level: 1, xp: 0 } } });
   const [subject, setSubject] = useState("math"); // いまプレイ中の科目
-  const [unit, setUnit] = useState("seifu");       // 数学のいまの単元（正負の数 / 文字式 …）
+  const [unit, setUnit] = useState("seifu");       // いまの単元（数学：正負の数 / 文字式 … 国語：漢字 …）
   const [battleReturn, setBattleReturn] = useState("trials"); // バトル後の戻り先
   const prog = (player.subjects && player.subjects[subject]) || { level: 1, xp: 0 };
   const deviceIdRef = useRef(null);
@@ -1595,10 +1620,11 @@ function Rinogical() {
         {screen === "home" && <SubjectHome char={character} coins={player.coins} nickname={nickname}
           onMath={() => { setSubject("math"); setScreen("trials"); }}
           onEnglish={() => { setSubject("english"); setBattleReturn("home"); setScreen("battle"); }}
-          onKokugo={() => { setSubject("kokugo"); setBattleReturn("home"); setScreen("battle"); }}
+          onKokugo={() => { setSubject("kokugo"); setScreen("trials"); }}
           onRika={() => { setSubject("rika"); setBattleReturn("home"); setScreen("battle"); }}
           onShakai={() => { setSubject("shakai"); setBattleReturn("home"); setScreen("battle"); }} />}
-        {screen === "trials" && <Home char={character} level={prog.level} coins={player.coins} nickname={nickname} onBoss={(i) => { setUnit(MATH_UNIT_KEYS[i] || "seifu"); setBattleReturn("trials"); setScreen("battle"); }} onBack={() => setScreen("home")} />}
+        {screen === "trials" && <Home char={character} level={prog.level} coins={player.coins} nickname={nickname} subjectKey={subject}
+          onBoss={(i) => { const R = SUBJECT_ROOMS[subject] || SUBJECT_ROOMS.math; setUnit(R.keys[i] || R.keys[0]); setBattleReturn("trials"); setScreen("battle"); }} onBack={() => setScreen("home")} />}
         {screen === "battle" && (
           <Battle char={character} player={player} setPlayer={setPlayer} subjectKey={subject} unitKey={unit} prog={prog} nickname={nickname}
             onWin={() => setScreen("victory")} onHome={() => setScreen(battleReturn)} />
@@ -1744,11 +1770,11 @@ function SubjectHome({ char, coins, nickname, onMath, onEnglish, onKokugo, onRik
 }
 
 /* ---------- ホーム（試練の間）---------- */
-function Home({ char, level, coins, nickname, onBoss, onBack }) {
+function Home({ char, level, coins, nickname, onBoss, onBack, subjectKey = "math" }) {
   const [devOpen, setDevOpen] = useState(false);
-  // 開放フラグだけコード側に残し、name/sub は辞書（t("rooms")）から取る
-  const roomOpen = [true, true, true];
-  const rooms = t("rooms").map((r, i) => ({ ...r, open: roomOpen[i] }));
+  // 部屋の並びは SUBJECT_ROOMS（39_kokugo_units.jsx）、name/sub は辞書（t(roomsKey)）から取る
+  const R = SUBJECT_ROOMS[subjectKey] || SUBJECT_ROOMS.math;
+  const rooms = t(R.roomsKey).map((r, i) => ({ ...r, open: i < R.keys.length }));
   return (
     <div style={{ animation: "rino-pop .4s ease", position: "relative", minHeight: 520 }}>
       <HUD level={level} coins={coins} name={nickname} />
@@ -1815,8 +1841,12 @@ function MarkedText({ text, mark }) {
 function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, onWin, onHome }) {
   // 数学のときは単元（正負の数 / 文字式 …）の設定 U を読む。英語のときは U=null。
   const U = subjectKey === "math" ? (MATH_UNITS[unitKey] || MATH_UNITS.seifu) : null;
+  // 国語のときは部屋（漢字 …）の設定 KU を読む（39_kokugo_units.jsx）
+  const KU = subjectKey === "kokugo" ? (KOKUGO_UNITS[unitKey] || KOKUGO_UNITS.kanji) : null;
   const meta = U
     ? { ...SUBJECT_META.math, bossName: U.bossName, tokens: U.tokens, explain: U.explain }
+    : KU
+    ? { ...SUBJECT_META.kokugo, bossName: KU.bossName, tokens: KU.tokens, explain: KU.explain }
     : (SUBJECT_META[subjectKey] || SUBJECT_META.math);
   const [bossHP, setBossHP] = useState(BOSS_HP);
   const [hp, setHp] = useState(PLAYER_HP);
@@ -1840,7 +1870,7 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
     if (subjectKey === "english") {
       p = genEnglishProblem(lv);
     } else if (subjectKey === "kokugo") {
-      p = genKokugoProblem(lv);
+      p = KU.gen(lv);
     } else if (subjectKey === "rika") {
       p = genRikaProblem(lv);
     } else if (subjectKey === "shakai") {
@@ -1874,7 +1904,7 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
       convo.current.push({ role: "assistant", content: txt });
       setExplain(txt);
     } catch {
-      setExplain(subjectKey === "english" ? localExplainEn(problem) : subjectKey === "kokugo" ? localExplainKokugo(problem) : subjectKey === "rika" ? localExplainRika(problem) : subjectKey === "shakai" ? localExplainShakai(problem) : (U ? U.localExplain(problem) : localExplain(problem)));
+      setExplain(subjectKey === "english" ? localExplainEn(problem) : subjectKey === "kokugo" ? KU.localExplain(problem) : subjectKey === "rika" ? localExplainRika(problem) : subjectKey === "shakai" ? localExplainShakai(problem) : (U ? U.localExplain(problem) : localExplain(problem)));
     } finally { setExplaining(false); }
   }
 
@@ -2055,7 +2085,7 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
               onEasier={() => fetchExplain(subjectKey === "english"
                 ? "「もっとかんたんに」と言われました。主語による be動詞の見分け方を、別の身近な言い方で、いちばんやさしく説明して。同じ説明のくり返しは避けて。"
                 : subjectKey === "kokugo"
-                ? "「もっとかんたんに」と言われました。その漢字の覚え方を、別の切り口（へん・つくりの意味、にた形の漢字とのくらべ方、送りがなの見分け方など）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。"
+                ? KU.easier
                 : subjectKey === "rika"
                 ? "「もっとかんたんに」と言われました。その用語の覚え方を、別の切り口（名前の漢字の意味、対になる用語とのセット、身近な植物での例えなど）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。中学1年で習わない光合成や蒸散のくわしい話には立ち入らないで。"
                 : subjectKey === "shakai"
