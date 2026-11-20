@@ -148,7 +148,7 @@
 | `70_screen_start.jsx` | `Loading` / `CHARACTERS` / `CharacterSelect` / `NameInput` / `Tutorial` |
 | `71_teacher_icon.jsx` | `TeacherIcon` |
 | `72_screen_home.jsx` | `SubjectHome` / `Home` |
-| `73_screen_battle.jsx` | `MarkedText`（問題文の対象語を強調）/ `Battle` / `ExplainPanel` |
+| `73_screen_battle.jsx` | `MarkedText`（問題文の対象語を強調）/ `RECENT_PROBLEMS`（同じ問題が続けて出ないための記録。教科・単元ごとに直近4問）/ `Battle`（`nextProblem` が引き直し、`makeProblem` が1問つくる）/ `ExplainPanel` |
 | `74_screen_victory.jsx` | `Victory` |
 
 ★ = 順番が本当に効くファイル（「絶対に守るルール」参照）

@@ -17,6 +17,12 @@ function MarkedText({ text, mark }) {
   );
 }
 
+/* 同じ問題が続けて出ないように、教科・単元ごとに最近出た問題の目印を覚えておく（フェーズ4）。
+   アプリを開いている間はバトルをまたいで覚えている。AIの応用問題は対象外（毎回ちがうため）。 */
+const RECENT_PROBLEMS = {};
+const RECENT_N = 4;      // 直近この数の問題とは重ならないようにする
+const RECENT_TRIES = 8;  // 引き直す回数の上限（問題数が少ない単元でも止まらないように）
+
 function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, onWin, onHome }) {
   // 数学のときは単元（正負の数 / 文字式 …）の設定 U を読む。英語のときは U=null。
   const U = subjectKey === "math" ? (MATH_UNITS[unitKey] || MATH_UNITS.seifu) : null;
@@ -44,8 +50,25 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
 
   async function nextProblem() {
     setPhase("loading"); setPicked(null); setExplain(""); setMood("idle"); setBuilt([]);
-    let p;
     const lv = prog.level;
+    const rkey = subjectKey + "/" + (U || KU ? unitKey : "");
+    const recent = RECENT_PROBLEMS[rkey] || (RECENT_PROBLEMS[rkey] = []);
+    let p;
+    for (let i = 0; i < RECENT_TRIES; i++) {
+      p = await makeProblem(lv, i > 0); // 引き直しのときはAIを呼ばない（通信で待たせないため）
+      if (p.kind === "応用" || !recent.includes(`${p.q}|${p.a}`)) break;
+    }
+    recent.unshift(`${p.q}|${p.a}`);
+    recent.length = Math.min(recent.length, RECENT_N);
+    const ch = p.choices || (p.type === "number" ? makeChoices(p.a) : []);
+    setProblem(p); setChoices(ch);
+    setMode(p.ui || "choice"); setInputVal("");
+    setPhase("answer");
+  }
+
+  /* 1問つくる（教科・単元・レベルで出し分け） */
+  async function makeProblem(lv, noAi) {
+    let p;
     if (subjectKey === "english") {
       p = genEnglishProblem(lv);
     } else if (subjectKey === "kokugo") {
@@ -57,17 +80,14 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
     } else {
       const roll = Math.random();
       try {
-        if (lv >= 5 && roll < 0.5) p = await U.genOyou(lv);
+        if (!noAi && lv >= 5 && roll < 0.5) p = await U.genOyou(lv);
         else if (lv >= 3 && roll < 0.7) p = U.genStd ? U.genStd(lv) : genFromPool(U.pool); // 標準：型＋ランダムな数
         else p = U.genKihon(lv);
       } catch { p = genFromPool(U.pool); }
       p.type = "number";
       p.ui = pickAnswerMode(lv, p.a);
     }
-    const ch = p.choices || (p.type === "number" ? makeChoices(p.a) : []);
-    setProblem(p); setChoices(ch);
-    setMode(p.ui || "choice"); setInputVal("");
-    setPhase("answer");
+    return p;
   }
   useEffect(() => { nextProblem(); /* eslint-disable-next-line */ }, []);
 
