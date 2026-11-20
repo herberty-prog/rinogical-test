@@ -1,9 +1,10 @@
 # ===========================================================================
 # 自動ビルド：src/ などを変更して push すると、GitHub が自動で
+#   ⓪ 問題の自動チェック（tools/verify.mjs：正解が1つか・選択肢の重複・計算が合うか など）
 #   ① 構文チェック（@babel/standalone 7.24.7）
 #   ② npm run build で index.html を生成
 #   ③ index.html が変わっていればコミットして公開（GitHub Pages）
-# までやります。構文エラーがあれば ② で止まり、公開中の画面は壊れません。
+# までやります。問題チェックか構文チェックで引っかかればそこで止まり、公開中の画面は壊れません。
 # ===========================================================================
 name: build
 
@@ -14,6 +15,7 @@ on:
       - "src/**"
       - "build/**"
       - "build.mjs"
+      - "tools/**"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/build.yml"
@@ -39,6 +41,9 @@ jobs:
 
       - name: 依存関係のインストール
         run: npm ci
+
+      - name: 問題の自動チェック
+        run: npm run verify
 
       - name: 構文チェック＋ビルド
         run: npm run build

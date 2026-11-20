@@ -5,7 +5,8 @@
   "description": "Rinogical（りのじかる）— ビルド用の設定。アプリ本体は src/ と index.html です。",
   "scripts": {
     "build": "node build.mjs",
-    "check": "node build.mjs --check-only"
+    "check": "node build.mjs --check-only",
+    "verify": "node tools/verify.mjs"
   },
   "devDependencies": {
     "@babel/standalone": "7.24.7"
