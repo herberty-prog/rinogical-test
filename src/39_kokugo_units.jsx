@@ -14,9 +14,19 @@ const KOKUGO_UNITS = {
     gen: genGoiProblem, explain: GOI_EXPLAIN_SYSTEM, localExplain: localExplainGoi,
     easier: "「もっとかんたんに」と言われました。そのことばの意味を、身近な場面の短い例文を1つだけ使って、いちばんやさしく説明して。漢字1文字ずつの意味から考えるヒントも1つ添えて。同じ説明のくり返しは避けて。",
   },
+  kimari: {
+    name: "文法", bossName: "ブロークン・シンタクス", tokens: ["主", "述", "文", "節", "品", "詞", "敬", "語"],
+    gen: genKimariProblem, explain: KIMARI_EXPLAIN_SYSTEM, localExplain: localExplainKimari,
+    easier: "「もっとかんたんに」と言われました。見分け方の手順（文節は「ネ」を入れて区切る、品詞は自立語か→活用するか→言い切りの形）のうち、この問題に関係する1つだけを、ごく短い例文で、いちばんやさしく説明して。同じ説明のくり返しは避けて。",
+  },
+  kobun: {
+    name: "古文", bossName: "エンシェント・ムーン", tokens: ["昔", "月", "竹", "姫", "翁", "いと", "ゐ", "ゑ"],
+    gen: genKobunProblem, explain: KOBUN_EXPLAIN_SYSTEM, localExplain: localExplainKobun,
+    easier: "「もっとかんたんに」と言われました。この問題に関係するルールか意味を1つだけ選んで、今のことばとくらべながら、いちばんやさしく説明して。同じ説明のくり返しは避けて。中1で習わない古典文法には立ち入らないで。",
+  },
 };
 /* 部屋の並び順（試練の間の上から）。i 番目 → 単元キー */
-const KOKUGO_UNIT_KEYS = ["kanji", "goi"];
+const KOKUGO_UNIT_KEYS = ["kanji", "goi", "kimari", "kobun"];
 
 /* 試練の間（単元選択）を持つ教科の一覧。ここに無い教科は「科目選択→すぐバトル」のまま。
    roomsKey は 40_i18n.jsx の部屋名リストのキー。 */
