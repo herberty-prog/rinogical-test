@@ -102,7 +102,7 @@ function DeviceTransfer() {
       <input value={v} onChange={e => { setV(e.target.value); setArmed(false); }} placeholder="dev-xxxxxxxx-xxxx-..."
         autoCapitalize="off" autoCorrect="off" spellCheck={false}
         style={{ width: "100%", boxSizing: "border-box", background: "#0e0c16", color: "#cfc7e6", border: "1px solid #34304a",
-          borderRadius: 8, padding: "8px 10px", fontSize: 12, marginBottom: 8, fontFamily: "inherit" }} />
+          borderRadius: 8, padding: "8px 10px", fontSize: 16, marginBottom: 8, fontFamily: "inherit" }} />
       <button onClick={apply} style={{ ...btn, background: armed ? "#e8a33a" : "#8be9c0", color: "#12101c" }}>
         {armed ? "もう一度押して確定" : "この番号に切り替える"}
       </button>
@@ -145,7 +145,7 @@ function AccountBox() {
   const box = { background: "#1b1828", border: "1px solid #34304a", borderRadius: 12, padding: 12, marginBottom: 14 };
   const btn = { border: "none", borderRadius: 8, padding: "7px 12px", fontWeight: 800, cursor: "pointer", fontSize: 12, marginRight: 8, marginBottom: 6 };
   const inp = { width: "100%", boxSizing: "border-box", background: "#0e0c16", color: "#cfc7e6", border: "1px solid #34304a",
-    borderRadius: 8, padding: "8px 10px", fontSize: 12, marginBottom: 8, fontFamily: "inherit" };
+    borderRadius: 8, padding: "8px 10px", fontSize: 16, marginBottom: 8, fontFamily: "inherit" };
   return (
     <div style={box}>
       <div style={{ fontWeight: 800, color: "#ffd56b", fontSize: 13, marginBottom: 6 }}>アカウント（親用）</div>
@@ -171,9 +171,10 @@ function DevPanel({ onClose }) {
   const allItems = PROGRESS.flatMap(p => p.items);
   const doneAll = allItems.filter(i => i.done).length;
   return (
-    <div onClick={onClose} style={{ position: "absolute", inset: 0, zIndex: 50, background: "rgba(8,5,20,.82)",
-      display: "flex", alignItems: "center", justifyContent: "center", padding: 12, borderRadius: 24 }}>
-      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 440, maxHeight: "88%", overflowY: "auto",
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(8,5,20,.82)",
+      display: "flex", alignItems: "center", justifyContent: "center", boxSizing: "border-box",
+      padding: "calc(env(safe-area-inset-top, 0px) + 12px) 12px calc(env(safe-area-inset-bottom, 0px) + 12px)" }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 440, maxHeight: "100%", overflowY: "auto", boxSizing: "border-box",
         background: "#12101c", borderRadius: 18, border: "1px solid #34304a", padding: 16,
         fontFamily: "ui-monospace,Menlo,Consolas,monospace", color: "#cfc7e6" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>

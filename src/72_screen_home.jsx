@@ -78,12 +78,12 @@ function Home({ char, level, coins, nickname, onBoss, onBack }) {
         </div>
       )}
 
-      {/* 開発者用：極小・薄色の隠しボタン（右下隅）。DEV_PANEL_ENABLED=false で消える */}
+      {/* 開発者用：小さめ・薄色の隠しボタン。画面（ビューポート）の右下に固定。DEV_PANEL_ENABLED=false で消える */}
       {DEV_PANEL_ENABLED && (
         <button onClick={() => setDevOpen(true)} aria-label="dev"
-          style={{ position: "absolute", right: 2, bottom: 2, width: 22, height: 16, padding: 0,
-            background: "transparent", border: "none", color: "rgba(255,255,255,.12)",
-            fontSize: 9, fontWeight: 700, letterSpacing: .5, cursor: "pointer", lineHeight: "16px" }}>
+          style={{ position: "fixed", right: 6, bottom: "calc(env(safe-area-inset-bottom, 0px) + 6px)", zIndex: 40,
+            width: 40, height: 26, padding: 0, background: "rgba(0,0,0,.25)", border: "none", borderRadius: 8,
+            color: "rgba(255,255,255,.35)", fontSize: 11, fontWeight: 700, letterSpacing: .5, cursor: "pointer", lineHeight: "26px" }}>
           dev
         </button>
       )}
