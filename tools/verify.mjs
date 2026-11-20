@@ -69,7 +69,54 @@ function evalExpr(expr, vars = {}) {
 const near = (a, b) => Math.abs(Number(a) - Number(b)) < 1e-9;
 
 /* 数学の問題文の形ごとに、答えを確かめる。確かめられない形は null（チェックしない） */
+/* フェーズ5の単元は、問題に v（検算用の材料）を持たせてある。それを使って答えを計算し直す */
+const piS = (k) => (k === 1 ? "π" : `${k}π`);
+const lineS = (a) => (a === 1 ? "y=x" : a === -1 ? "y=-x" : `y=${a}x`);
+const r2v = (x) => Math.round(x * 100) / 100;
+const sum = (a) => a.reduce((s, x) => s + x, 0);
+function expectFromV(v) {
+  const sorted = (a) => a.slice().sort((x, y) => x - y);
+  switch (v.t) {
+    case "hirei_a": return v.y / v.x;
+    case "hirei_y": return v.a * v.x;
+    case "hanpi_a": return v.x * v.y;
+    case "hanpi_y": return v.a / v.x;
+    case "hirei_y2": return (v.y1 / v.x1) * v.x2;
+    case "hanpi_y2": return (v.x1 * v.y1) / v.x2;
+    case "graph_line": return lineS(v.a);
+    case "graph_hyper": return `y=${v.a}/x`;
+    case "mean": return sum(v.vals) / v.vals.length;
+    case "median": { const s = sorted(v.vals), n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; }
+    case "mode": { const c = {}; v.vals.forEach(x => (c[x] = (c[x] || 0) + 1)); const mx = Math.max(...Object.values(c)); const ms = Object.keys(c).filter(k => c[k] === mx); return ms.length === 1 ? Number(ms[0]) : NaN; }
+    case "range": return Math.max(...v.vals) - Math.min(...v.vals);
+    case "rel": return r2v(v.c / v.total);
+    case "classmid": return (v.lo + v.hi) / 2;
+    case "bars_count": return v.counts[v.i];
+    case "bars_modeclass": { const mx = Math.max(...v.counts); if (v.counts.filter(c => c === mx).length !== 1) return NaN; const i = v.counts.indexOf(mx); return (v.edges[i] + v.edges[i + 1]) / 2; }
+    case "bars_cum": return sum(v.counts.slice(0, v.i));
+    case "bars_total": return sum(v.counts);
+    case "prob": return r2v(v.k / v.n);
+    case "vol_cuboid": return v.a * v.b * v.c;
+    case "vol_cyl": return piS(v.r * v.r * v.h);
+    case "vol_cone": { const k = v.r * v.r * v.h / 3; return Number.isInteger(k) ? piS(k) : NaN; }
+    case "vol_pyr": { const k = v.base * v.h / 3; return Number.isInteger(k) ? k : NaN; }
+    case "vol_sphere": { const k = 4 * v.r ** 3 / 3; return Number.isInteger(k) ? piS(k) : NaN; }
+    case "surf_sphere": return piS(4 * v.r * v.r);
+    case "surf_cyl": return piS(2 * v.r * v.r + 2 * v.r * v.h);
+    case "surf_cube": return 6 * v.a * v.a;
+    case "circ_len": return piS(2 * v.r);
+    case "circ_area": return piS(v.r * v.r);
+    case "arc": { const k = 2 * v.r * v.deg / 360; return Number.isInteger(k) ? piS(k) : NaN; }
+    case "sector": { const k = v.r * v.r * v.deg / 360; return Number.isInteger(k) ? piS(k) : NaN; }
+    case "deg_from_arc": return 360 * v.k / (2 * v.r);
+    default: throw new Error("知らない v.t: " + v.t);
+  }
+}
 function checkMath(unit, p) {
+  if (p.v) {
+    const e = expectFromV(p.v);
+    return typeof e === "number" ? near(e, p.a) : String(e) === String(p.a);
+  }
   const q = String(p.q).trim();
   if (unit === "houtei") {
     const m = q.match(/^(.+?)\s*=\s*(.+?)\s*を解くと/);
@@ -149,31 +196,39 @@ const report = [];
 
 // 数学：単元ごと（超基本＝genKihon、標準＝pool の全問）
 const MATH_UNITS = get("MATH_UNITS");
+/* バトル画面と同じ補い方：type が無ければ数値、選択肢が無ければ makeChoices（4択で確かめる） */
+function asBattle(p) {
+  p.type = p.type || "number";
+  p.ui = "choice";
+  if (!p.choices) p.choices = p.type === "number" ? get("makeChoices")(p.a) : [];
+  return p;
+}
+/* 「この円の面積は？」のように文が同じでも、図の数字が違えば別の問題として数える */
+const variantKey = (p) => `${p.q}|${p.fig ? JSON.stringify(p.fig) : ""}|${p.a}`;
+/* 標準の目標数。フェーズ4の3単元は100通り、フェーズ5の単元は「1単元50問程度」 */
+const STD_GOAL = { hirei: 50, heimen: 50, kukan: 50, data: 50 };
 for (const key of get("MATH_UNIT_KEYS") || []) {
   const U = MATH_UNITS[key];
   const seen = new Set();
   for (const lv of LEVELS) for (let i = 0; i < TRIES; i++) {
-    const p = U.genKihon(lv);
-    seen.add(p.q);
-    p.type = "number";
-    p.ui = "choice";
-    p.choices = get("makeChoices")(p.a);
+    const p = asBattle(U.genKihon(lv));
+    seen.add(variantKey(p));
     checkProblem(p, `数学/${U.name} Lv${lv}「${p.q}」`, fails, { mathUnit: key });
   }
   // 標準（型＋ランダムな数）：答えを検算し、100通り以上あることも確かめる（フェーズ4の目標）
   if (typeof U.genStd === "function") {
     const std = new Set();
     for (const lv of LEVELS) for (let i = 0; i < TRIES; i++) {
-      const p = { ...U.genStd(lv), type: "number", ui: "choice" };
-      p.choices = get("makeChoices")(p.a);
-      std.add(p.q);
+      const p = asBattle(U.genStd(lv));
+      std.add(variantKey(p));
       checkProblem(p, `数学/${U.name} 標準 Lv${lv}「${p.q}」`, fails, { mathUnit: key });
     }
-    if (std.size < 100) fails.push(`数学/${U.name}：標準の問題が${std.size}通りしかない（100通り以上にする）`);
+    const goal = STD_GOAL[key] || 100;
+    if (std.size < goal) fails.push(`数学/${U.name}：標準の問題が${std.size}通りしかない（${goal}通り以上にする）`);
     report.push(`数学/${U.name}：標準（型＋数）${std.size}通り`);
   }
   (U.pool || []).forEach((p, i) => {
-    const pp = { ...p, type: "number", ui: "choice", choices: get("makeChoices")(p.a) };
+    const pp = asBattle({ ...p });
     checkProblem(pp, `数学/${U.name} 標準${i + 1}「${p.q}」`, fails, { mathUnit: key });
   });
   checkDuplicates(`数学/${U.name}の標準プール`, U.pool, d => d.q, fails);

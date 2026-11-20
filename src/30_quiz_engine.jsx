@@ -75,6 +75,18 @@ function cst(n) { return n === 0 ? "" : (n > 0 ? ` + ${n}` : ` - ${-n}`); }
 function nz(lo, hi) { let n = 0; while (n === 0) n = rint(lo, hi); return n; }
 function pickOne(arr) { return arr[rint(0, arr.length - 1)]; }
 
+/* フェーズ5の数学（比例・データ・図形）で使う部品
+   piStr(k)：円周率をふくむ答えの表し方（1 → "π"、6 → "6π"）。tools/verify.mjs も同じ表し方で検算する。
+   choices4(答え, 候補)：答え＋候補から重ならない3つで4択をつくる（候補が足りなければ数を足して埋める）。 */
+function piStr(k) { return k === 1 ? "π" : `${k}π`; }
+function choices4(ans, cands) {
+  const out = [ans];
+  for (const c of cands) { if (out.length >= 4) break; if (c !== undefined && c !== null && !out.some(o => String(o) === String(c))) out.push(c); }
+  let g = 1;
+  while (out.length < 4 && typeof ans === "number") { const c = ans + g * 2; if (!out.includes(c)) out.push(c); g++; }
+  return shuffle(out);
+}
+
 /* 正負の数の標準：型を7つ持ち、数はその場で決める。4回に1回は固定の HYOJUN からも出す。
    答えはすべて整数（わり算は割り切れる数だけ作る）。tools/verify.mjs が式を計算して検算する。 */
 function genStd_seifu(level) {

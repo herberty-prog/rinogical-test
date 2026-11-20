@@ -75,12 +75,13 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
     } else {
       const roll = Math.random();
       try {
-        if (!noAi && lv >= 5 && roll < 0.5) p = await U.genOyou(lv);
+        if (!noAi && U.genOyou && lv >= 5 && roll < 0.5) p = await U.genOyou(lv);
         else if (lv >= 3 && roll < 0.7) p = U.genStd ? U.genStd(lv) : genFromPool(U.pool); // 標準：型＋ランダムな数
         else p = U.genKihon(lv);
       } catch { p = genFromPool(U.pool); }
-      p.type = "number";
-      p.ui = pickAnswerMode(lv, p.a);
+      // フェーズ5の単元（比例・データ・図形）は type / ui / choices を問題側で持つことがある
+      p.type = p.type || "number";
+      p.ui = p.ui || (p.type === "number" ? pickAnswerMode(lv, p.a) : "choice");
     }
     return p;
   }
@@ -198,8 +199,9 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
             <span style={{ fontSize: 12, fontWeight: 800, color: C.bg0, background: C.butter, padding: "3px 10px", borderRadius: 999 }}>{problem.kind}</span>
             <span style={{ fontSize: 12, color: C.inkDim }}>{t("attackHint")}</span>
           </div>
-          <div style={{ textAlign: "center", fontSize: problem.type === "number" ? 28 : 22, fontWeight: 900, margin: "10px 0 18px", letterSpacing: problem.type === "number" ? 1 : 0 }}>
-            {mode === "arrange" ? t("arrangeHint") : <><MarkedText text={problem.q} mark={problem.mark} />{(problem.type === "number" && problem.kind !== "応用") ? " =" : ""}</>}
+          <Figure fig={problem.fig} />
+          <div style={{ textAlign: "center", fontSize: problem.text ? 18 : problem.type === "number" ? 28 : 22, fontWeight: 900, margin: "10px 0 18px", letterSpacing: problem.type === "number" && !problem.text ? 1 : 0, lineHeight: problem.text ? 1.6 : undefined }}>
+            {mode === "arrange" ? t("arrangeHint") : <><MarkedText text={problem.q} mark={problem.mark} />{(problem.type === "number" && problem.kind !== "応用" && !problem.text) ? " =" : ""}</>}
           </div>
           {mode === "arrange" ? (
             <div>

@@ -3,7 +3,7 @@
 中1の娘むけ・ダークファンタジー×粘土風パステルの学習アプリ。
 
 ## 現在の構成
-- **React コンポーネント群**：`src/` の35ファイル（フェーズ5で増えていく）。**これが最新の“設計図”。編集対象はここ。** ファイル名の先頭の番号が、つなぐ順番。
+- **React コンポーネント群**：`src/` の40ファイル（フェーズ5で増えていく）。**これが最新の“設計図”。編集対象はここ。** ファイル名の先頭の番号が、つなぐ順番。
 - **`index.html` は生成物**。手で編集しない（次のビルドで上書きされる）。
 - **このフォルダ内の注意**：`Rinogical.jsx` と `Rinogical.ver3`〜`ver15`、`index.ver1`〜`ver20`、`_archive/` は過去のバックアップ。**これらは読まない・触らない・変更しない。**
   - `Rinogical.jsx` は分割前の1ファイル版。記録として残してあるだけで、**もう編集しない**（編集しても index.html には反映されない）。
@@ -54,7 +54,7 @@
 ## フェーズ5の進捗（中1の残り単元。本人の決定：1単元50問程度・図形は図を出すしくみも作る・歴史も入れる）
 利用の上限で止まったら、ここの未完の行から再開する（`git log` も確認）。1単元ごとに `npm run verify` を通してcommit。
 - [x] 5-0 全教科を試練の間に・単元の表を共通化（`39_subject_units.jsx`）
-- [ ] 数学：比例と反比例／データの活用／空間図形／平面図形（図を出すしくみ＝問題に `fig` を持たせてSVGで表示）
+- [x] 5-1 数学：比例と反比例／平面図形／空間図形／データの活用（2026-11-21）。図は `25_figure.jsx` の `Figure`（問題に `fig` を持たせるとSVGで表示）。計算の問題は `v`（検算用の材料）を持ち、`npm run verify` が答えを計算し直す。標準は各50通り以上
 - [ ] 英語：一般動詞／can／三人称単数／疑問詞／現在進行形／過去形
 - [ ] 理科：動物のなかま／身のまわりの物質／光・音・力／大地の変化
 - [ ] 社会（地理）：日本の姿／人々の生活と環境／世界の諸地域
@@ -121,7 +121,7 @@
   - **進行中（2026-11-02〜・C方式）**：①匿名ログイン＋自動引っ越し【済・テスト版】②メール＋パスワードの登録／ログイン画面【済・テスト版。devパネル内の「アカウント（親用）」＝`AccountBox`。関数は `registerEmail`（匿名にひも付け・uid不変）/ `loginEmail`（切り替えて再起動）/ `authErrorText`】③本人がFirebaseで「匿名」「メール/パスワード」を有効化【済 2026-11-10。匿名の自動クリーンアップはオフ】④引き継ぎ（本人の端末）【済。けいのセーブを uid 側へ移し、メール登録済み】。娘はまだ未使用のため不要 ⑤ルールを `match /users/{uid} { allow read, write: if request.auth != null && request.auth.uid == uid; }` に切り替え【済 2026-11-20 22:56公開。本番 rinogical にも同日反映済み】
   - ⚠ **ルールを切り替えるのは④が終わってから。** 切り替え後は端末ID側（`users/dev-…`）が読めなくなり、引き継ぎも自動引っ越しも効かなくなる。
 
-## `src/` の中身（35ファイル・つなぐ順）
+## `src/` の中身（40ファイル・つなぐ順）
 | ファイル | 中身 |
 |---|---|
 | `00_header.jsx` | import 2行＋冒頭コメント。**import を書いてよいのはここだけ** |
@@ -134,6 +134,7 @@
 | `22_boss.jsx` | `DarkNumber` |
 | `23_magi.jsx` | `Magi` |
 | `24_hpbar.jsx` | `HPBar` |
+| `25_figure.jsx` | `Figure`（問題の図をSVGで出す。`fig.type`＝`sector`おうぎ形／`circle`円／`coord`座標とグラフ／`bars`ヒストグラム／`solid`立体の見取図）。`fig` が無ければ何も出さない。図は目安で、数値はラベルで示す |
 | `30_quiz_engine.jsx` | `rint` / `fmt` / `shuffle` / `makeChoices` / `pickAnswerMode` / `parseInput` ＋ 正負の数（`genKihon` / `HYOJUN`）＋ 数学の標準問題づくりの共通部品（`term` / `cst` / `nz` / `pickOne`）と `genStd_seifu`（型＋ランダムな数。4回に1回は `HYOJUN` から） |
 | `31_ai.jsx` | `AI_PROXY_URL` / `callClaude` |
 | `32_math_seifu_ai.jsx` | `TEACHER` / `EXPLAIN_SYSTEM` / `genOyou` / `localExplain` |
@@ -148,7 +149,8 @@
 | `35_subjects_meta.jsx` ★ | `SUBJECT_META`（教科を束ねる表。数学・英語・国語・理科・社会の5教科） |
 | `36_math_moji.jsx` | 文字式ひとそろい（`genStd_moji`＝型＋ランダムな数の標準問題を含む） |
 | `37_math_houtei.jsx` | 方程式ひとそろい（`genStd_houtei`＝解を先に決めてから式を作る標準問題を含む） |
-| `38_math_units.jsx` ★ | `genFromPool` / `MATH_UNITS` / `MATH_UNIT_KEYS`。各単元の `genStd` が「標準」の問題（Lv3以降）。無ければ従来どおり `pool` から |
+| `37_math_hirei.jsx` / `37_math_heimen.jsx` / `37_math_kukan.jsx` / `37_math_data.jsx` | フェーズ5の数学4単元（比例と反比例・平面図形・空間図形・データの活用）。それぞれ `genKihon_〇〇` / `genStd_〇〇` / 用語の表 `〇〇_TERMS` / `localExplain〇〇` / `EXPLAIN_〇〇`。問題は `type`・`ui`・`choices`・`fig`・`v`・`text`（小さめの文字・「=」なし）を自分で持てる。πをふくむ答えは `piStr`（30）で「36π」の形、4択は `piChoices`（kukan）。`genOyou`（AI応用）は持たない |
+| `38_math_units.jsx` ★ | `genFromPool` / `termPool` / `MATH_UNITS` / `MATH_UNIT_KEYS`（seifu・moji・houtei・hirei・heimen・kukan・data）。各単元の `genStd` が「標準」の問題（Lv3以降）。無ければ従来どおり `pool` から |
 | `39_subject_units.jsx` ★ | 数学以外の教科の単元（部屋）の表：`ENGLISH_UNITS` / `KOKUGO_UNITS` / `RIKA_UNITS` / `SHAKAI_UNITS` とそれぞれの `〇〇_UNIT_KEYS`（並び順）、全教科をまとめた `SUBJECT_ROOMS`（`units`・`keys`・`roomsKey`）。1単元＝`{ name, bossName, tokens, gen, explain, localExplain, easier }`。**34・35・38 より後でなければ壊れる**。**2026-11-21（フェーズ5-0）から全教科が「科目→試練の間→バトル」**。単元を足すときは「①その教科の `〇〇_UNITS` に1項目 ②`〇〇_UNIT_KEYS` に並べる ③`40_i18n.jsx` の部屋名リスト（`rooms` / `englishRooms` / `kokugoRooms` / `rikaRooms` / `shakaiRooms`）に1行」の3点セット。Battle・verify は `SUBJECT_ROOMS` から自動で拾う |
 | `40_i18n.jsx` | `LANG` / `STR`（辞書）/ `t()` ← ①の作業はここが中心。案内文は用途ごとに別キー（`inputHint`＝数値入力／`inputHintText`＝文字入力／`arrangeHint`＝ならべかえの見出し／`arrangeTrayHint`＝札を置く枠が空のとき）。**1本にまとめ直さないこと** |
 | `45_dev_panel.jsx` | `DEV_PANEL_ENABLED` / `PROGRESS`（＝ロードマップと同じ内容のチェックリスト。`future: true` は件数に数えない）/ `AccountBox`（親用：メール登録・ログイン）/ `DeviceTransfer`（セーブの引き継ぎ：端末IDの表示・コピー・切り替え）/ `DevPanel`。⚠ セーブ本体はFirestoreの `users/{uid}`（2026-11-20〜。それ以前は `users/{端末ID}`）。ログイン状態は端末にだけあるので、**ホーム画面のアイコンを消すと匿名のままのセーブには戻れない**（2026-10-31に端末ID方式で実際に発生）。メール登録済みなら「登録済みのメールでログイン」で戻れる。ルールのロック後は「セーブの引き継ぎ」は効かない（端末ID側が読めないため）。`DEV_PANEL_ENABLED` を false にするとこの機能も消えるので、そのときは別の場所へ移すこと |

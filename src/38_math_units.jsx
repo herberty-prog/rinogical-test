@@ -1,5 +1,7 @@
 /* 共通：標準プールからランダムに1問選ぶ */
 const genFromPool = (pool) => ({ ...pool[rint(0, pool.length - 1)], kind: "標準" });
+/* フェーズ5の単元：用語の表を、うまく作れなかったときの予備プール（4択）にする */
+const termPool = (terms) => terms.map(d => ({ q: d.q, a: d.a, type: "text", ui: "choice", choices: shuffle([d.a].concat(d.ng)), why: d.why, text: true }));
 
 /* 単元データ本体。Battle はここを見て問題・ボス名・解説を切り替える */
 const MATH_UNITS = {
@@ -24,6 +26,30 @@ const MATH_UNITS = {
     genOyou: (lv) => genOyou(lv, HOUTEI_OYOU_SYS),
     explain: EXPLAIN_HOUTEI, localExplain: localExplainHoutei,
   },
+  hirei: {
+    name: "比例と反比例", bossName: "グラフ・ファントム",
+    tokens: ["y=ax", "x", "y", "a", "(2,4)", "O", "y=6/x", "-x"],
+    genKihon: genKihon_hirei, pool: termPool(HIREI_TERMS), genStd: genStd_hirei, genOyou: null,
+    explain: EXPLAIN_HIREI, localExplain: localExplainHirei,
+  },
+  heimen: {
+    name: "平面図形", bossName: "コンパス・レイス",
+    tokens: ["π", "⊥", "//", "弧", "弦", "90°", "r", "360°"],
+    genKihon: genKihon_heimen, pool: termPool(HEIMEN_TERMS), genStd: genStd_heimen, genOyou: null,
+    explain: EXPLAIN_HEIMEN, localExplain: localExplainHeimen,
+  },
+  kukan: {
+    name: "空間図形", bossName: "ヴォイド・キューブ",
+    tokens: ["cm³", "π", "1/3", "面", "辺", "r", "h", "球"],
+    genKihon: genKihon_kukan, pool: termPool(KUKAN_TERMS), genStd: genStd_kukan, genOyou: null,
+    explain: EXPLAIN_KUKAN, localExplain: localExplainKukan,
+  },
+  data: {
+    name: "データの活用", bossName: "ノイズ・ゴーレム",
+    tokens: ["平均", "中央", "最頻", "範囲", "度数", "0.25", "%", "階級"],
+    genKihon: genKihon_data, pool: termPool(DATA_TERMS), genStd: genStd_data, genOyou: null,
+    explain: EXPLAIN_DATA, localExplain: localExplainData,
+  },
 };
 /* 部屋の並び順（試練の間の上から）。i 番目 → 単元キー */
-const MATH_UNIT_KEYS = ["seifu", "moji", "houtei"];
+const MATH_UNIT_KEYS = ["seifu", "moji", "houtei", "hirei", "heimen", "kukan", "data"];
