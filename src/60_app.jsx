@@ -115,10 +115,10 @@ export default function Rinogical() {
         {screen === "tutorial" && <Tutorial char={character} nickname={nickname} onStart={() => setScreen("home")} />}
         {screen === "home" && <SubjectHome char={character} coins={player.coins} nickname={nickname}
           onMath={() => { setSubject("math"); setScreen("trials"); }}
-          onEnglish={() => { setSubject("english"); setBattleReturn("home"); setScreen("battle"); }}
+          onEnglish={() => { setSubject("english"); setScreen("trials"); }}
           onKokugo={() => { setSubject("kokugo"); setScreen("trials"); }}
-          onRika={() => { setSubject("rika"); setBattleReturn("home"); setScreen("battle"); }}
-          onShakai={() => { setSubject("shakai"); setBattleReturn("home"); setScreen("battle"); }} />}
+          onRika={() => { setSubject("rika"); setScreen("trials"); }}
+          onShakai={() => { setSubject("shakai"); setScreen("trials"); }} />}
         {screen === "trials" && <Home char={character} level={prog.level} coins={player.coins} nickname={nickname} subjectKey={subject}
           onBoss={(i) => { const R = SUBJECT_ROOMS[subject] || SUBJECT_ROOMS.math; setUnit(R.keys[i] || R.keys[0]); setBattleReturn("trials"); setScreen("battle"); }} onBack={() => setScreen("home")} />}
         {screen === "battle" && (

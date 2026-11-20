@@ -181,13 +181,13 @@ for (const key of get("MATH_UNIT_KEYS") || []) {
 }
 
 // 数学以外：問題をつくる関数をくり返し呼ぶ
-const gens = [
-  ["英語", get("genEnglishProblem")],
-  ["理科", get("genRikaProblem")],
-  ["社会", get("genShakaiProblem")],
-];
-const KU = get("KOKUGO_UNITS") || {};
-for (const k of get("KOKUGO_UNIT_KEYS") || []) gens.push([`国語/${KU[k].name}`, KU[k].gen]);
+const gens = [];
+const SUBJECT_NAMES = { english: "英語", kokugo: "国語", rika: "理科", shakai: "社会" };
+const ROOMS = get("SUBJECT_ROOMS") || {};
+for (const [sk, R] of Object.entries(ROOMS)) {
+  if (sk === "math") continue;
+  for (const k of R.keys) gens.push([`${SUBJECT_NAMES[sk] || sk}/${R.units[k].name}`, R.units[k].gen]);
+}
 for (const [name, g] of gens) {
   if (typeof g !== "function") { fails.push(`${name}：問題をつくる関数が見つからない`); continue; }
   const seen = new Set();

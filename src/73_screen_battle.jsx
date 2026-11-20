@@ -26,12 +26,13 @@ const RECENT_TRIES = 8;  // 引き直す回数の上限（問題数が少ない�
 function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, onWin, onHome }) {
   // 数学のときは単元（正負の数 / 文字式 …）の設定 U を読む。英語のときは U=null。
   const U = subjectKey === "math" ? (MATH_UNITS[unitKey] || MATH_UNITS.seifu) : null;
-  // 国語のときは部屋（漢字 …）の設定 KU を読む（39_kokugo_units.jsx）
-  const KU = subjectKey === "kokugo" ? (KOKUGO_UNITS[unitKey] || KOKUGO_UNITS.kanji) : null;
+  // 数学以外は、教科ごとの単元の表（39_subject_units.jsx）から今の部屋の設定 KU を読む
+  const R = !U ? SUBJECT_ROOMS[subjectKey] : null;
+  const KU = R ? (R.units[unitKey] || R.units[R.keys[0]]) : null;
   const meta = U
     ? { ...SUBJECT_META.math, bossName: U.bossName, tokens: U.tokens, explain: U.explain }
     : KU
-    ? { ...SUBJECT_META.kokugo, bossName: KU.bossName, tokens: KU.tokens, explain: KU.explain }
+    ? { ...SUBJECT_META[subjectKey], bossName: KU.bossName, tokens: KU.tokens, explain: KU.explain }
     : (SUBJECT_META[subjectKey] || SUBJECT_META.math);
   const [bossHP, setBossHP] = useState(BOSS_HP);
   const [hp, setHp] = useState(PLAYER_HP);
@@ -69,14 +70,8 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
   /* 1問つくる（教科・単元・レベルで出し分け） */
   async function makeProblem(lv, noAi) {
     let p;
-    if (subjectKey === "english") {
-      p = genEnglishProblem(lv);
-    } else if (subjectKey === "kokugo") {
+    if (KU) {
       p = KU.gen(lv);
-    } else if (subjectKey === "rika") {
-      p = genRikaProblem(lv);
-    } else if (subjectKey === "shakai") {
-      p = genShakaiProblem(lv);
     } else {
       const roll = Math.random();
       try {
@@ -103,7 +98,7 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
       convo.current.push({ role: "assistant", content: txt });
       setExplain(txt);
     } catch {
-      setExplain(subjectKey === "english" ? localExplainEn(problem) : subjectKey === "kokugo" ? KU.localExplain(problem) : subjectKey === "rika" ? localExplainRika(problem) : subjectKey === "shakai" ? localExplainShakai(problem) : (U ? U.localExplain(problem) : localExplain(problem)));
+      setExplain(KU ? KU.localExplain(problem) : (U ? U.localExplain(problem) : localExplain(problem)));
     } finally { setExplaining(false); }
   }
 
@@ -281,14 +276,8 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
           {phase === "result" && !sameAns(picked, problem) && (
             <ExplainPanel explain={explain} explaining={explaining} teacher={meta.teacher} teacherImg={meta.teacherImg} teacherEmoji={meta.emoji}
               onWhy={() => fetchExplain("「なんで？」と聞かれました。なぜその答えになるのか、考え方のステップを順番に、わかりやすく説明して。")}
-              onEasier={() => fetchExplain(subjectKey === "english"
-                ? "「もっとかんたんに」と言われました。主語による be動詞の見分け方を、別の身近な言い方で、いちばんやさしく説明して。同じ説明のくり返しは避けて。"
-                : subjectKey === "kokugo"
+              onEasier={() => fetchExplain(KU
                 ? KU.easier
-                : subjectKey === "rika"
-                ? "「もっとかんたんに」と言われました。その用語の覚え方を、別の切り口（名前の漢字の意味、対になる用語とのセット、身近な植物での例えなど）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。中学1年で習わない光合成や蒸散のくわしい話には立ち入らないで。"
-                : subjectKey === "shakai"
-                ? "「もっとかんたんに」と言われました。その用語の覚え方を、別の切り口（言葉の意味、地球儀や地図でのイメージ、対になる知識とのセットなど）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。政治や歴史の話には立ち入らないで。"
                 : "「もっとかんたんに」と言われました。これまでとは別の、身近なたとえ（温度計・エレベーターの階・おこづかいの貸し借りなど）を1つだけ使って、いちばんやさしく説明して。同じ説明のくり返しは避けて。")}
               onNext={nextProblem} />
           )}
