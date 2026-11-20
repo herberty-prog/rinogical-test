@@ -1552,7 +1552,11 @@ const MATH_UNITS = {
 /* 部屋の並び順（試練の間の上から）。i 番目 → 単元キー */
 const MATH_UNIT_KEYS = ["seifu", "moji", "houtei"];
 
-/* ================= 国語の単元（部屋）の表 =================
+/* ================= 教科ごとの単元（部屋）の表 =================
+   数学は 38_math_units.jsx の MATH_UNITS（つくり方がちがうので別）。それ以外の教科はこのファイル。
+   1つの単元＝{ name, bossName, tokens, gen(問題をつくる), explain(AI先生の設定), localExplain(通信なし時), easier(「もっとかんたんに」) }
+   単元を足すときは：①その教科の 〇〇_UNITS に1項目 ②〇〇_UNIT_KEYS に並べる ③40_i18n.jsx の部屋名リストに1行。
+   ---- 以下、もとは国語用に作った表（2026-11-21 フェーズ1）----
    数学の MATH_UNITS（38_math_units.jsx）と同じ考え方。Battle は unitKey でここを引き、
    問題の作り方・ボス名・解説を部屋ごとに切り替える。
    部屋を足すときは：①ここに1項目足す ②KOKUGO_UNIT_KEYS に並べる ③40_i18n.jsx の kokugoRooms に部屋名を足す。
@@ -1582,11 +1586,44 @@ const KOKUGO_UNITS = {
 /* 部屋の並び順（試練の間の上から）。i 番目 → 単元キー */
 const KOKUGO_UNIT_KEYS = ["kanji", "goi", "kimari", "kobun"];
 
-/* 試練の間（単元選択）を持つ教科の一覧。ここに無い教科は「科目選択→すぐバトル」のまま。
-   roomsKey は 40_i18n.jsx の部屋名リストのキー。 */
+/* ---- 英語 ---- */
+const ENGLISH_UNITS = {
+  be: {
+    name: "be動詞", bossName: SUBJECT_META.english.bossName, tokens: SUBJECT_META.english.tokens,
+    gen: genEnglishProblem, explain: ENGLISH_EXPLAIN_SYSTEM, localExplain: localExplainEn,
+    easier: "「もっとかんたんに」と言われました。主語による be動詞の見分け方を、別の身近な言い方で、いちばんやさしく説明して。同じ説明のくり返しは避けて。",
+  },
+};
+const ENGLISH_UNIT_KEYS = ["be"];
+
+/* ---- 理科 ---- */
+const RIKA_UNITS = {
+  shokubutsu: {
+    name: "植物のなかま", bossName: SUBJECT_META.rika.bossName, tokens: SUBJECT_META.rika.tokens,
+    gen: genRikaProblem, explain: RIKA_EXPLAIN_SYSTEM, localExplain: localExplainRika,
+    easier: "「もっとかんたんに」と言われました。その用語の覚え方を、別の切り口（名前の漢字の意味、対になる用語とのセット、身近な植物での例えなど）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。中学1年で習わない光合成や蒸散のくわしい話には立ち入らないで。",
+  },
+};
+const RIKA_UNIT_KEYS = ["shokubutsu"];
+
+/* ---- 社会 ---- */
+const SHAKAI_UNITS = {
+  sekai: {
+    name: "世界の姿", bossName: SUBJECT_META.shakai.bossName, tokens: SUBJECT_META.shakai.tokens,
+    gen: genShakaiProblem, explain: SHAKAI_EXPLAIN_SYSTEM, localExplain: localExplainShakai,
+    easier: "「もっとかんたんに」と言われました。その用語の覚え方を、別の切り口（言葉の意味、地球儀や地図でのイメージ、対になる知識とのセットなど）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。政治や歴史の話には立ち入らないで。",
+  },
+};
+const SHAKAI_UNIT_KEYS = ["sekai"];
+
+/* 試練の間（単元選択）の一覧。全教科が「科目→試練の間→バトル」（2026-11-21 フェーズ5-0〜）。
+   units は単元の表（数学は MATH_UNITS）、keys は部屋の並び順、roomsKey は 40_i18n.jsx の部屋名リストのキー。 */
 const SUBJECT_ROOMS = {
-  math: { keys: MATH_UNIT_KEYS, roomsKey: "rooms" },
-  kokugo: { keys: KOKUGO_UNIT_KEYS, roomsKey: "kokugoRooms" },
+  math: { units: MATH_UNITS, keys: MATH_UNIT_KEYS, roomsKey: "rooms" },
+  english: { units: ENGLISH_UNITS, keys: ENGLISH_UNIT_KEYS, roomsKey: "englishRooms" },
+  kokugo: { units: KOKUGO_UNITS, keys: KOKUGO_UNIT_KEYS, roomsKey: "kokugoRooms" },
+  rika: { units: RIKA_UNITS, keys: RIKA_UNIT_KEYS, roomsKey: "rikaRooms" },
+  shakai: { units: SHAKAI_UNITS, keys: SHAKAI_UNIT_KEYS, roomsKey: "shakaiRooms" },
 };
 
 /* ===========================================================================
@@ -1642,6 +1679,15 @@ const STR = {
       { name: "暗黒の数字の間", sub: "正負の数 / ボス：ダーク・ナンバー" },
       { name: "文字式の回廊", sub: "式の値（代入）/ ボス：シャドウ・レター" },
       { name: "方程式の聖堂", sub: "1次方程式 / ボス：バランス・ロード" },
+    ],
+    englishRooms: [
+      { name: "言霊の鏡の間", sub: "be動詞（am・is・are）/ ボス：ミステイク・スペクター" },
+    ],
+    rikaRooms: [
+      { name: "枯れ葉の温室", sub: "植物のなかま / ボス：ウィザリング・ブルーム" },
+    ],
+    shakaiRooms: [
+      { name: "迷子の羅針盤の間", sub: "世界の姿 / ボス：ロスト・メリディアン" },
     ],
     kokugoRooms: [
       { name: "沈黙の書庫", sub: "漢字の読み書き / ボス：サイレント・ワード" },
@@ -2064,10 +2110,10 @@ function Rinogical() {
         {screen === "tutorial" && <Tutorial char={character} nickname={nickname} onStart={() => setScreen("home")} />}
         {screen === "home" && <SubjectHome char={character} coins={player.coins} nickname={nickname}
           onMath={() => { setSubject("math"); setScreen("trials"); }}
-          onEnglish={() => { setSubject("english"); setBattleReturn("home"); setScreen("battle"); }}
+          onEnglish={() => { setSubject("english"); setScreen("trials"); }}
           onKokugo={() => { setSubject("kokugo"); setScreen("trials"); }}
-          onRika={() => { setSubject("rika"); setBattleReturn("home"); setScreen("battle"); }}
-          onShakai={() => { setSubject("shakai"); setBattleReturn("home"); setScreen("battle"); }} />}
+          onRika={() => { setSubject("rika"); setScreen("trials"); }}
+          onShakai={() => { setSubject("shakai"); setScreen("trials"); }} />}
         {screen === "trials" && <Home char={character} level={prog.level} coins={player.coins} nickname={nickname} subjectKey={subject}
           onBoss={(i) => { const R = SUBJECT_ROOMS[subject] || SUBJECT_ROOMS.math; setUnit(R.keys[i] || R.keys[0]); setBattleReturn("trials"); setScreen("battle"); }} onBack={() => setScreen("home")} />}
         {screen === "battle" && (
@@ -2292,12 +2338,13 @@ const RECENT_TRIES = 8;  // 引き直す回数の上限（問題数が少ない�
 function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, onWin, onHome }) {
   // 数学のときは単元（正負の数 / 文字式 …）の設定 U を読む。英語のときは U=null。
   const U = subjectKey === "math" ? (MATH_UNITS[unitKey] || MATH_UNITS.seifu) : null;
-  // 国語のときは部屋（漢字 …）の設定 KU を読む（39_kokugo_units.jsx）
-  const KU = subjectKey === "kokugo" ? (KOKUGO_UNITS[unitKey] || KOKUGO_UNITS.kanji) : null;
+  // 数学以外は、教科ごとの単元の表（39_subject_units.jsx）から今の部屋の設定 KU を読む
+  const R = !U ? SUBJECT_ROOMS[subjectKey] : null;
+  const KU = R ? (R.units[unitKey] || R.units[R.keys[0]]) : null;
   const meta = U
     ? { ...SUBJECT_META.math, bossName: U.bossName, tokens: U.tokens, explain: U.explain }
     : KU
-    ? { ...SUBJECT_META.kokugo, bossName: KU.bossName, tokens: KU.tokens, explain: KU.explain }
+    ? { ...SUBJECT_META[subjectKey], bossName: KU.bossName, tokens: KU.tokens, explain: KU.explain }
     : (SUBJECT_META[subjectKey] || SUBJECT_META.math);
   const [bossHP, setBossHP] = useState(BOSS_HP);
   const [hp, setHp] = useState(PLAYER_HP);
@@ -2335,14 +2382,8 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
   /* 1問つくる（教科・単元・レベルで出し分け） */
   async function makeProblem(lv, noAi) {
     let p;
-    if (subjectKey === "english") {
-      p = genEnglishProblem(lv);
-    } else if (subjectKey === "kokugo") {
+    if (KU) {
       p = KU.gen(lv);
-    } else if (subjectKey === "rika") {
-      p = genRikaProblem(lv);
-    } else if (subjectKey === "shakai") {
-      p = genShakaiProblem(lv);
     } else {
       const roll = Math.random();
       try {
@@ -2369,7 +2410,7 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
       convo.current.push({ role: "assistant", content: txt });
       setExplain(txt);
     } catch {
-      setExplain(subjectKey === "english" ? localExplainEn(problem) : subjectKey === "kokugo" ? KU.localExplain(problem) : subjectKey === "rika" ? localExplainRika(problem) : subjectKey === "shakai" ? localExplainShakai(problem) : (U ? U.localExplain(problem) : localExplain(problem)));
+      setExplain(KU ? KU.localExplain(problem) : (U ? U.localExplain(problem) : localExplain(problem)));
     } finally { setExplaining(false); }
   }
 
@@ -2547,14 +2588,8 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
           {phase === "result" && !sameAns(picked, problem) && (
             <ExplainPanel explain={explain} explaining={explaining} teacher={meta.teacher} teacherImg={meta.teacherImg} teacherEmoji={meta.emoji}
               onWhy={() => fetchExplain("「なんで？」と聞かれました。なぜその答えになるのか、考え方のステップを順番に、わかりやすく説明して。")}
-              onEasier={() => fetchExplain(subjectKey === "english"
-                ? "「もっとかんたんに」と言われました。主語による be動詞の見分け方を、別の身近な言い方で、いちばんやさしく説明して。同じ説明のくり返しは避けて。"
-                : subjectKey === "kokugo"
+              onEasier={() => fetchExplain(KU
                 ? KU.easier
-                : subjectKey === "rika"
-                ? "「もっとかんたんに」と言われました。その用語の覚え方を、別の切り口（名前の漢字の意味、対になる用語とのセット、身近な植物での例えなど）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。中学1年で習わない光合成や蒸散のくわしい話には立ち入らないで。"
-                : subjectKey === "shakai"
-                ? "「もっとかんたんに」と言われました。その用語の覚え方を、別の切り口（言葉の意味、地球儀や地図でのイメージ、対になる知識とのセットなど）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。政治や歴史の話には立ち入らないで。"
                 : "「もっとかんたんに」と言われました。これまでとは別の、身近なたとえ（温度計・エレベーターの階・おこづかいの貸し借りなど）を1つだけ使って、いちばんやさしく説明して。同じ説明のくり返しは避けて。")}
               onNext={nextProblem} />
           )}
