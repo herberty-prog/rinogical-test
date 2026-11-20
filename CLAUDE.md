@@ -3,7 +3,7 @@
 中1の娘むけ・ダークファンタジー×粘土風パステルの学習アプリ。
 
 ## 現在の構成
-- **React コンポーネント群**：`src/` の42ファイル（フェーズ5で増えていく）。**これが最新の“設計図”。編集対象はここ。** ファイル名の先頭の番号が、つなぐ順番。
+- **React コンポーネント群**：`src/` の46ファイル（フェーズ5で増えていく）。**これが最新の“設計図”。編集対象はここ。** ファイル名の先頭の番号が、つなぐ順番。
 - **`index.html` は生成物**。手で編集しない（次のビルドで上書きされる）。
 - **このフォルダ内の注意**：`Rinogical.jsx` と `Rinogical.ver3`〜`ver15`、`index.ver1`〜`ver20`、`_archive/` は過去のバックアップ。**これらは読まない・触らない・変更しない。**
   - `Rinogical.jsx` は分割前の1ファイル版。記録として残してあるだけで、**もう編集しない**（編集しても index.html には反映されない）。
@@ -56,7 +56,7 @@
 - [x] 5-0 全教科を試練の間に・単元の表を共通化（`39_subject_units.jsx`）
 - [x] 5-1 数学：比例と反比例／平面図形／空間図形／データの活用（2026-11-21）。図は `25_figure.jsx` の `Figure`（問題に `fig` を持たせるとSVGで表示）。計算の問題は `v`（検算用の材料）を持ち、`npm run verify` が答えを計算し直す。標準は各50通り以上
 - [x] 5-2 英語：一般動詞／can／三人称単数／疑問詞／現在進行形／過去形（2026-11-21）。`34_english_verbs.jsx`（動詞の表から組み立て）・`34_english_wh.jsx`。4択の別解（can の文の does、現在の文の過去形、be動詞のダミーで「I am a dog.」が成り立つ等）を避ける作り方はファイル冒頭に記載
-- [ ] 理科：動物のなかま／身のまわりの物質／光・音・力／大地の変化
+- [x] 5-3 理科：動物のなかま（46問）／身のまわりの物質（45問＋密度・濃度の計算）／光・音・力（39問＋音・ばね・重さの計算）／大地の変化（50問＋地震の波の計算）（2026-11-21）。表は `genTableProblem`（30）で4択に。計算は `v` を持ち verify が検算
 - [ ] 社会（地理）：日本の姿／人々の生活と環境／世界の諸地域
 - [ ] 社会（歴史・東京書籍）：古代（文明〜平安）／中世（鎌倉〜室町）
 
@@ -121,7 +121,7 @@
   - **進行中（2026-11-02〜・C方式）**：①匿名ログイン＋自動引っ越し【済・テスト版】②メール＋パスワードの登録／ログイン画面【済・テスト版。devパネル内の「アカウント（親用）」＝`AccountBox`。関数は `registerEmail`（匿名にひも付け・uid不変）/ `loginEmail`（切り替えて再起動）/ `authErrorText`】③本人がFirebaseで「匿名」「メール/パスワード」を有効化【済 2026-11-10。匿名の自動クリーンアップはオフ】④引き継ぎ（本人の端末）【済。けいのセーブを uid 側へ移し、メール登録済み】。娘はまだ未使用のため不要 ⑤ルールを `match /users/{uid} { allow read, write: if request.auth != null && request.auth.uid == uid; }` に切り替え【済 2026-11-20 22:56公開。本番 rinogical にも同日反映済み】
   - ⚠ **ルールを切り替えるのは④が終わってから。** 切り替え後は端末ID側（`users/dev-…`）が読めなくなり、引き継ぎも自動引っ越しも効かなくなる。
 
-## `src/` の中身（42ファイル・つなぐ順）
+## `src/` の中身（46ファイル・つなぐ順）
 | ファイル | 中身 |
 |---|---|
 | `00_header.jsx` | import 2行＋冒頭コメント。**import を書いてよいのはここだけ** |
@@ -135,7 +135,7 @@
 | `23_magi.jsx` | `Magi` |
 | `24_hpbar.jsx` | `HPBar` |
 | `25_figure.jsx` | `Figure`（問題の図をSVGで出す。`fig.type`＝`sector`おうぎ形／`circle`円／`coord`座標とグラフ／`bars`ヒストグラム／`solid`立体の見取図）。`fig` が無ければ何も出さない。図は目安で、数値はラベルで示す |
-| `30_quiz_engine.jsx` | `rint` / `fmt` / `shuffle` / `makeChoices` / `pickAnswerMode` / `parseInput` ＋ 正負の数（`genKihon` / `HYOJUN`）＋ 数学の標準問題づくりの共通部品（`term` / `cst` / `nz` / `pickOne`）と `genStd_seifu`（型＋ランダムな数。4回に1回は `HYOJUN` から） |
+| `30_quiz_engine.jsx` | `rint` / `fmt` / `shuffle` / `makeChoices` / `pickAnswerMode` / `parseInput` ＋ 正負の数（`genKihon` / `HYOJUN`）＋ 数学の標準問題づくりの共通部品（`term` / `cst` / `nz` / `pickOne` / `piStr` / `choices4`）＋ 表から4択をつくる `genTableProblem`（理科・社会のフェーズ5）と `genStd_seifu`（型＋ランダムな数。4回に1回は `HYOJUN` から） |
 | `31_ai.jsx` | `AI_PROXY_URL` / `callClaude` |
 | `32_math_seifu_ai.jsx` | `TEACHER` / `EXPLAIN_SYSTEM` / `genOyou` / `localExplain` |
 | `33_answer_check.jsx` | `normText` / `sameAns`。iPhone の ’ は ' として扱う。入力問題だけ `p.alts`（別の書き方：cannot など）も正解にする |
@@ -144,6 +144,7 @@
 | `34_english_wh.jsx` | 英語・疑問詞。`WH_DATA`（答えの文つきの型16。ダミーは型ごとに手書き、Which でも通る型は入力の `alts` に）/ `genEnWh` / `localExplainEnWh` / `EN_WH_SYSTEM`。`34_english_verbs.jsx` の部品を使うので、名前はそれより後 |
 | `34_kokugo_kanji.jsx` | 国語ひとそろい。`KANJI_DATA`（10問）/ `genKokugoProblem` / `localExplainKokugo` / `KOKUGO_TEACHER` / `KOKUGO_EXPLAIN_SYSTEM`。**4択のみ（読み＝漢字の例文→ひらがな／書き＝かなの例文→漢字）。Lv1-2は読みのみ、Lv3以降で書きが混ざる。** ダミーは1問ずつ手書きで持たせている（自動生成禁止） |
 | `34_rika_shokubutsu.jsx` | 理科ひとそろい。`RIKA_DATA`（30問）/ `genRikaProblem` / `localExplainRika` / `RIKA_TEACHER` / `RIKA_EXPLAIN_SYSTEM`。**4択のみ。`adv:false`＝基本6問／`adv:true`＝発展4問で、Lv1-2は基本のみ、Lv3以降で発展が混ざる。** 各問に `why`（一言解説）を持たせ、オフライン時のローカル解説に使う。ダミーは1問ずつ手書き（自動生成禁止） |
+| `34_rika_unit2_doubutsu.jsx` 〜 `34_rika_unit5_daichi.jsx` | 理科のフェーズ5の4単元。`DOUBUTSU_DATA` / `BUSSHITSU_DATA` / `HIKARI_DATA` / `DAICHI_DATA`（1問1行・手書きのダミー・`why`・`adv`）と、計算問題（`genBusshitsuCalc` / `genHikariCalc` / `genDaichiCalc`、Lv3以降に2〜3割）・`localExplain〇〇`・`〇〇_EXPLAIN_SYSTEM`。**`RIKA_TEACHER` を使うので `34_rika_shokubutsu.jsx` より後に並ぶ名前（unit2〜5）にしてある** |
 | `34_shakai_sekai.jsx` | 社会（地理）ひとそろい。`SHAKAI_DATA`（30問）/ `genShakaiProblem` / `localExplainShakai` / `SHAKAI_TEACHER` / `SHAKAI_EXPLAIN_SYSTEM`。**4択のみ。`adv:false`＝基本6問／`adv:true`＝発展4問で、Lv1-2は基本のみ、Lv3以降で発展が混ざる。** 各問に `why` を持たせている。ダミーは1問ずつ手書きで、**別解が生まれないよう確認済み**（パリ子午線の件。⑦参照） |
 | `34_kokugo_kimari.jsx` | 国語・文法（言葉のきまり）ひとそろい。`KIMARI_DATA`（26問：言葉の単位・文の成分・文節の関係・品詞・敬語の基本）/ `genKimariProblem` / `localExplainKimari` / `KIMARI_EXPLAIN_SYSTEM`。`adv:true` は Lv3 以降。**敬語は中2の内容だが本人判断で基本（尊敬・謙譲・丁寧の区別）だけ入れた例外**。それ以上は広げない |
 | `34_kokugo_kobun.jsx` | 国語・古文ひとそろい。`KOBUN_DATA`（20問：歴史的仮名遣い・古語・竹取物語の基本）/ `genKobunProblem` / `localExplainKobun` / `KOBUN_EXPLAIN_SYSTEM`。古語は**意味が1つに決まるものだけ**（をかし・あやし等は別解が出るので入れない）。本文の長い引用はしない |

@@ -75,6 +75,14 @@ function cst(n) { return n === 0 ? "" : (n > 0 ? ` + ${n}` : ` - ${-n}`); }
 function nz(lo, hi) { let n = 0; while (n === 0) n = rint(lo, hi); return n; }
 function pickOne(arr) { return arr[rint(0, arr.length - 1)]; }
 
+/* フェーズ5の理科・社会で使う部品：1問1行の表（{ q, a, ng:[ダミー3つ], adv, why }）から4択を1問つくる。
+   adv:true は発展で、Lv3 以降だけ出す。ダミーは表に手で書く（自動で借りると正解が2つになることがある） */
+function genTableProblem(data, level) {
+  const pool = level >= 3 ? data : data.filter(d => !d.adv);
+  const d = pickOne(pool);
+  return { type: "text", ui: "choice", kind: d.adv ? "発展" : "基本", q: d.q, a: d.a, choices: shuffle([d.a].concat(d.ng)), why: d.why };
+}
+
 /* フェーズ5の数学（比例・データ・図形）で使う部品
    piStr(k)：円周率をふくむ答えの表し方（1 → "π"、6 → "6π"）。tools/verify.mjs も同じ表し方で検算する。
    choices4(答え, 候補)：答え＋候補から重ならない3つで4択をつくる（候補が足りなければ数を足して埋める）。 */

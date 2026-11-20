@@ -73,6 +73,7 @@ const near = (a, b) => Math.abs(Number(a) - Number(b)) < 1e-9;
 const piS = (k) => (k === 1 ? "π" : `${k}π`);
 const lineS = (a) => (a === 1 ? "y=x" : a === -1 ? "y=-x" : `y=${a}x`);
 const r2v = (x) => Math.round(x * 100) / 100;
+const r1v = (x) => Math.round(x * 10) / 10;
 const sum = (a) => a.reduce((s, x) => s + x, 0);
 function expectFromV(v) {
   const sorted = (a) => a.slice().sort((x, y) => x - y);
@@ -109,6 +110,16 @@ function expectFromV(v) {
     case "arc": { const k = 2 * v.r * v.deg / 360; return Number.isInteger(k) ? piS(k) : NaN; }
     case "sector": { const k = v.r * v.r * v.deg / 360; return Number.isInteger(k) ? piS(k) : NaN; }
     case "deg_from_arc": return 360 * v.k / (2 * v.r);
+    // 理科の計算（フェーズ5）
+    case "density": return r1v(v.m / v.V);
+    case "mass": return r1v(v.d * v.V);
+    case "conc": return v.s / (v.s + v.w) * 100;
+    case "sound": return v.s * v.sec;
+    case "echo": return v.s * v.sec / 2;
+    case "spring": return v.per * v.F;
+    case "weight": return v.g / 100;
+    case "speed": return v.d / v.sec;
+    case "time": return v.d / v.s;
     default: throw new Error("知らない v.t: " + v.t);
   }
 }
@@ -172,7 +183,7 @@ function checkProblem(p, where, fails, opt = {}) {
     const n = String(p.q).split(p.mark).length - 1;
     if (n !== 1) fails.push(`${where} 強調する言葉「${p.mark}」が問題文に${n}回出てくる（1回にする）`);
   }
-  if (opt.mathUnit) {
+  if (opt.mathUnit || p.v) { // 数学と、v（検算用の材料）を持つ理科などの計算問題
     try {
       const ok = checkMath(opt.mathUnit, p);
       if (ok === false) fails.push(`${where} 計算すると答えが合わない（a=${p.a}）`);
@@ -261,6 +272,9 @@ for (const [name, g] of gens) {
 const tables = [
   ["KANJI_DATA", d => d.kaki], ["GOI_DATA", d => d.w], ["KIMARI_DATA", d => d.q],
   ["KOBUN_DATA", d => d.q || d.w], ["RIKA_DATA", d => d.q], ["SHAKAI_DATA", d => d.q],
+  ["HIREI_TERMS", d => d.q], ["HEIMEN_TERMS", d => d.q], ["KUKAN_TERMS", d => d.q], ["DATA_TERMS", d => d.q],
+  ["WH_DATA", d => d.q],
+  ["DOUBUTSU_DATA", d => d.q], ["BUSSHITSU_DATA", d => d.q], ["HIKARI_DATA", d => d.q], ["DAICHI_DATA", d => d.q],
 ];
 for (const [name, keyOf] of tables) checkDuplicates(name, get(name), keyOf, fails);
 

@@ -79,8 +79,28 @@ const RIKA_UNITS = {
     gen: genRikaProblem, explain: RIKA_EXPLAIN_SYSTEM, localExplain: localExplainRika,
     easier: "「もっとかんたんに」と言われました。その用語の覚え方を、別の切り口（名前の漢字の意味、対になる用語とのセット、身近な植物での例えなど）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。中学1年で習わない光合成や蒸散のくわしい話には立ち入らないで。",
   },
+  doubutsu: {
+    name: "動物のなかま", bossName: "キメラ・ファング", tokens: ["魚", "鳥", "肺", "えら", "毛", "卵", "骨", "牙"],
+    gen: (lv) => genTableProblem(DOUBUTSU_DATA, lv), explain: DOUBUTSU_EXPLAIN_SYSTEM, localExplain: localExplainDoubutsu,
+    easier: "「もっとかんたんに」と言われました。その用語や考え方の覚え方を、別の切り口（名前の漢字の意味、対になる用語とのセット、身近な例えなど）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。恒温・変温や進化の話には立ち入らないで。",
+  },
+  busshitsu: {
+    name: "身のまわりの物質", bossName: "フラスコ・ミミック", tokens: ["O₂", "CO₂", "H₂", "g/cm³", "%", "℃", "泡", "結晶"],
+    gen: genBusshitsuProblem, explain: BUSSHITSU_EXPLAIN_SYSTEM, localExplain: localExplainBusshitsu,
+    easier: "「もっとかんたんに」と言われました。その用語や考え方の覚え方を、別の切り口（名前の漢字の意味、対になる用語とのセット、身近な例えなど）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。計算の問題なら、式を言葉で1行で示してから数を入れて。原子・分子の話には立ち入らないで。",
+  },
+  hikari: {
+    name: "光・音・力", bossName: "プリズム・ナイト", tokens: ["光", "音", "N", "Hz", "焦点", "反射", "ばね", "屈折"],
+    gen: genHikariProblem, explain: HIKARI_EXPLAIN_SYSTEM, localExplain: localExplainHikari,
+    easier: "「もっとかんたんに」と言われました。その用語や考え方の覚え方を、別の切り口（名前の漢字の意味、対になる用語とのセット、身近な例えなど）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。計算の問題なら、式を言葉で1行で示してから数を入れて。電流やエネルギーの話には立ち入らないで。",
+  },
+  daichi: {
+    name: "大地の変化", bossName: "ガイア・タイタン", tokens: ["P波", "S波", "震度", "岩", "化石", "火山", "層", "断層"],
+    gen: genDaichiProblem, explain: DAICHI_EXPLAIN_SYSTEM, localExplain: localExplainDaichi,
+    easier: "「もっとかんたんに」と言われました。その用語や考え方の覚え方を、別の切り口（名前の漢字の意味、対になる用語とのセット、身近な例えなど）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。天気や天体の話には立ち入らないで。",
+  },
 };
-const RIKA_UNIT_KEYS = ["shokubutsu"];
+const RIKA_UNIT_KEYS = ["shokubutsu", "doubutsu", "busshitsu", "hikari", "daichi"];
 
 /* ---- 社会 ---- */
 const SHAKAI_UNITS = {
