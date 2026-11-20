@@ -6,8 +6,13 @@ const BE_DATA = [
   { s: "They", be: "are" }, { s: "He", be: "is" }, { s: "She", be: "is" },
   { s: "It", be: "is" }, { s: "Tom", be: "is" }, { s: "Yuki", be: "is" },
   { s: "My friends", be: "are" },
+  // フェーズ4で追加（主語のバリエーション）
+  { s: "Ken and I", be: "are" }, { s: "Mr. Sato", be: "is" }, { s: "My mother", be: "is" },
+  { s: "Our teachers", be: "are" }, { s: "Mika and Rin", be: "are" },
 ];
-const BE_PRED = ["happy", "kind", "busy", "tall", "hungry", "fine", "sleepy", "from Tokyo", "at school", "good at music"];
+/* どの主語（人）とも自然につながる述語だけを使う。名詞（a student / students）は単複がずれるので入れない */
+const BE_PRED = ["happy", "kind", "busy", "tall", "hungry", "fine", "sleepy", "from Tokyo", "at school", "good at music",
+  "tired", "ready", "late", "in the park", "in the music club"];
 
 function engPick() {
   const d = BE_DATA[rint(0, BE_DATA.length - 1)];

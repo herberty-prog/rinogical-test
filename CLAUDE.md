@@ -39,10 +39,10 @@
 | フェーズ | 内容 | 状態 |
 |---|---|---|
 | 0 | セキュリティ：匿名ログイン＋メール/パスワード（C方式）、Firestoreのルールをロック | **ほぼ完了（2026-11-20ロック）**。残り：メール変更・パスワード再設定、娘のアカウント登録（娘の端末で本人作業） |
-| 1 | 国語の構造整理（科目→単元選択→バトルの2段構成、数学の `MATH_UNITS` 方式が手本）＋語彙ユニット | **完了（2026-11-21）**。国語の部屋：沈黙の書庫（漢字）・双子鏡の回廊（語彙30問） |
+| 1 | 国語の構造整理（科目→単元選択→バトルの2段構成、数学の `MATH_UNITS` 方式が手本）＋語彙ユニット | **完了（2026-11-21）**。※フェーズ1〜4は本人の実機確認待ち（jsdom上の自動テストでは全部屋・Lv1/Lv6・不正解時の解説まで通過済み）。国語の部屋：沈黙の書庫（漢字）・双子鏡の回廊（語彙30問） |
 | 2 | 国語の文法・古文 | **完了（2026-11-21）**。部屋：歯車の時計塔（文法26問・敬語の基本を含む）・月影の祭壇（古文20問） |
 | 3 | 検証のしくみ（正解が1つか・選択肢の重複などの自動チェック）＋漢字を中1の392字から50字ずつ差し替え | **自動チェックは完了（2026-11-21、`npm run verify`・Actionsで毎回実行）**。漢字の差し替えは本人判断で後回し（教科書の「一年生で学習した漢字」一覧の写真かPDFをもらってから） |
-| 4 | 問題プールの拡充（まず数学を型・数値生成で100問以上、選択肢シャッフル） | 未 |
+| 4 | 問題プールの拡充（まず数学を型・数値生成で100問以上、選択肢シャッフル） | **完了（2026-11-21）**。数学の標準を型＋数で各単元1000通り以上、同じ問題の連続を防止（直近4問）、理科・社会を各30問、英語の主語・述語を追加。選択肢のシャッフルは全教科で元から入っていた |
 | 5 | 各教科の単元を増やす（学校の進度・教科書の目次で確認しながら。社会の歴史分野も） | 未 |
 | 6 | 整理（i18n の仕上げ＝下の①、単元・教科の並べ替え） | 未 |
 | 7 | 読解ユニット（下の⑧フェーズB。まず設計だけ。今のバトルに乗らないので規模未確定） | 未 |
@@ -129,10 +129,10 @@
 | `31_ai.jsx` | `AI_PROXY_URL` / `callClaude` |
 | `32_math_seifu_ai.jsx` | `TEACHER` / `EXPLAIN_SYSTEM` / `genOyou` / `localExplain` |
 | `33_answer_check.jsx` | `normText` / `sameAns` |
-| `34_english_be.jsx` | 英語be動詞ひとそろい ＋ `ENGLISH_TEACHER` / `ENGLISH_EXPLAIN_SYSTEM` |
+| `34_english_be.jsx` | 英語be動詞ひとそろい（主語15×述語15の組み合わせ。述語は**どの主語ともつながる形容詞・場所だけ**＝名詞は単複がずれるので入れない）＋ `ENGLISH_TEACHER` / `ENGLISH_EXPLAIN_SYSTEM` |
 | `34_kokugo_kanji.jsx` | 国語ひとそろい。`KANJI_DATA`（10問）/ `genKokugoProblem` / `localExplainKokugo` / `KOKUGO_TEACHER` / `KOKUGO_EXPLAIN_SYSTEM`。**4択のみ（読み＝漢字の例文→ひらがな／書き＝かなの例文→漢字）。Lv1-2は読みのみ、Lv3以降で書きが混ざる。** ダミーは1問ずつ手書きで持たせている（自動生成禁止） |
-| `34_rika_shokubutsu.jsx` | 理科ひとそろい。`RIKA_DATA`（10問）/ `genRikaProblem` / `localExplainRika` / `RIKA_TEACHER` / `RIKA_EXPLAIN_SYSTEM`。**4択のみ。`adv:false`＝基本6問／`adv:true`＝発展4問で、Lv1-2は基本のみ、Lv3以降で発展が混ざる。** 各問に `why`（一言解説）を持たせ、オフライン時のローカル解説に使う。ダミーは1問ずつ手書き（自動生成禁止） |
-| `34_shakai_sekai.jsx` | 社会（地理）ひとそろい。`SHAKAI_DATA`（10問）/ `genShakaiProblem` / `localExplainShakai` / `SHAKAI_TEACHER` / `SHAKAI_EXPLAIN_SYSTEM`。**4択のみ。`adv:false`＝基本6問／`adv:true`＝発展4問で、Lv1-2は基本のみ、Lv3以降で発展が混ざる。** 各問に `why` を持たせている。ダミーは1問ずつ手書きで、**別解が生まれないよう確認済み**（パリ子午線の件。⑦参照） |
+| `34_rika_shokubutsu.jsx` | 理科ひとそろい。`RIKA_DATA`（30問）/ `genRikaProblem` / `localExplainRika` / `RIKA_TEACHER` / `RIKA_EXPLAIN_SYSTEM`。**4択のみ。`adv:false`＝基本6問／`adv:true`＝発展4問で、Lv1-2は基本のみ、Lv3以降で発展が混ざる。** 各問に `why`（一言解説）を持たせ、オフライン時のローカル解説に使う。ダミーは1問ずつ手書き（自動生成禁止） |
+| `34_shakai_sekai.jsx` | 社会（地理）ひとそろい。`SHAKAI_DATA`（30問）/ `genShakaiProblem` / `localExplainShakai` / `SHAKAI_TEACHER` / `SHAKAI_EXPLAIN_SYSTEM`。**4択のみ。`adv:false`＝基本6問／`adv:true`＝発展4問で、Lv1-2は基本のみ、Lv3以降で発展が混ざる。** 各問に `why` を持たせている。ダミーは1問ずつ手書きで、**別解が生まれないよう確認済み**（パリ子午線の件。⑦参照） |
 | `34_kokugo_kimari.jsx` | 国語・文法（言葉のきまり）ひとそろい。`KIMARI_DATA`（26問：言葉の単位・文の成分・文節の関係・品詞・敬語の基本）/ `genKimariProblem` / `localExplainKimari` / `KIMARI_EXPLAIN_SYSTEM`。`adv:true` は Lv3 以降。**敬語は中2の内容だが本人判断で基本（尊敬・謙譲・丁寧の区別）だけ入れた例外**。それ以上は広げない |
 | `34_kokugo_kobun.jsx` | 国語・古文ひとそろい。`KOBUN_DATA`（20問：歴史的仮名遣い・古語・竹取物語の基本）/ `genKobunProblem` / `localExplainKobun` / `KOBUN_EXPLAIN_SYSTEM`。古語は**意味が1つに決まるものだけ**（をかし・あやし等は別解が出るので入れない）。本文の長い引用はしない |
 | `34_kokugo_kotoba.jsx` | 国語・語彙ひとそろい。`GOI_DATA`（対義語10・類義語10・四字熟語10）/ `genGoiProblem` / `localExplainGoi` / `GOI_EXPLAIN_SYSTEM`。4択のみ。Lv1-2は対義語・類義語、Lv3以降で四字熟語（□に入る漢字）。各問に `why`。ダミーは手書きで、別解（もう1つの対義語・類義語）を入れないこと。**`34_kokugo_kanji.jsx` より後に並ぶ名前にしてある**（`KOKUGO_TEACHER` を使うため） |
