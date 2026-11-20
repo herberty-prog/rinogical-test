@@ -31,6 +31,27 @@ const HOUTEI = [
   { q: "3(x - 4) = -3 を解くと、x", a: 3 },
 ];
 
+/* 方程式の標準：型＋ランダムな数（フェーズ4）。4回に1回は固定の HOUTEI からも出す。
+   解（答え）を先に決めてから式を作るので、解はいつも整数。tools/verify.mjs が代入して検算する。 */
+function genStd_houtei(level) {
+  if (Math.random() < 0.25) return genFromPool(HOUTEI);
+  const sol = rint(-6, 6);
+  const t = rint(1, 3);
+  if (t === 1) {        // 両辺に x：ax + b = cx + d
+    const a = rint(2, 7);
+    let c = nz(-3, 5); if (c === a) c = a - 1 || -1;
+    const b = rint(-9, 9), d = a * sol + b - c * sol;
+    return { q: `${term(a, "x", true)}${cst(b)} = ${term(c, "x", true)}${cst(d)} を解くと、x`, a: sol, kind: "標準" };
+  }
+  if (t === 2) {        // かっこ：k(x + m) = n
+    const k = rint(2, 5), m = nz(-6, 6), n = k * (sol + m);
+    return { q: `${k}(x${cst(m)}) = ${n} を解くと、x`, a: sol, kind: "標準" };
+  }
+  // 定数から x をひく：n - kx = c
+  const n = rint(3, 15), k = rint(1, 4), c = n - k * sol;
+  return { q: `${n}${term(-k, "x", false)} = ${c} を解くと、x`, a: sol, kind: "標準" };
+}
+
 /* 応用：AIに方程式の文章題を作らせる（答えは整数） */
 const HOUTEI_OYOU_SYS =
   "あなたは中学1年生（東京書籍・1次方程式）の数学問題を作る出題者です。" +

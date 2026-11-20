@@ -58,7 +58,7 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
       const roll = Math.random();
       try {
         if (lv >= 5 && roll < 0.5) p = await U.genOyou(lv);
-        else if (lv >= 3 && roll < 0.7) p = genFromPool(U.pool);
+        else if (lv >= 3 && roll < 0.7) p = U.genStd ? U.genStd(lv) : genFromPool(U.pool); // 標準：型＋ランダムな数
         else p = U.genKihon(lv);
       } catch { p = genFromPool(U.pool); }
       p.type = "number";

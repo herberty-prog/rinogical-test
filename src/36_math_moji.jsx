@@ -39,6 +39,30 @@ const MOJI = [
   { q: "a = -4, b = 5 のとき　2a + b の値", a: -3 },
 ];
 
+/* 文字式の標準：型＋ランダムな数（フェーズ4）。4回に1回は固定の MOJI からも出す。答えはすべて整数。 */
+function genStd_moji(level) {
+  if (Math.random() < 0.25) return genFromPool(MOJI);
+  const t = rint(1, 4);
+  const v = pickOne(["x", "a", "y"]);
+  const val = nz(-5, 5);
+  if (t === 1) {        // 負の係数をふくむ1次式
+    const k = nz(-6, 6), b = rint(-9, 9);
+    return { q: `${v} = ${val} のとき　${term(k, v, true)}${cst(b)} の値`, a: k * val + b, kind: "標準" };
+  }
+  if (t === 2) {        // 定数が先：6 - 2x
+    const b = rint(1, 12), k = rint(1, 5);
+    return { q: `${v} = ${val} のとき　${b}${term(-k, v, false)} の値`, a: b - k * val, kind: "標準" };
+  }
+  if (t === 3) {        // 2乗をふくむ式
+    const k = pickOne([1, 2, 3, -1, -2]), b = rint(-6, 6), w = rint(-4, 4) || 2;
+    return { q: `${v} = ${w} のとき　${term(k, v + "²", true)}${cst(b)} の値`, a: k * w * w + b, kind: "標準" };
+  }
+  // 2つの文字
+  const [p, r] = pickOne([["x", "y"], ["a", "b"]]);
+  const pv = nz(-5, 5), rv = nz(-5, 5), k1 = nz(-4, 4), k2 = nz(-4, 4);
+  return { q: `${p} = ${pv}, ${r} = ${rv} のとき　${term(k1, p, true)}${term(k2, r, false)} の値`, a: k1 * pv + k2 * rv, kind: "標準" };
+}
+
 /* 応用：AIに代入の文章題を作らせる（答えは整数） */
 const MOJI_OYOU_SYS =
   "あなたは中学1年生（東京書籍・文字式／式の値）の数学問題を作る出題者です。" +

@@ -60,6 +60,59 @@ const HYOJUN = [
   { q: "(-10) ÷ 2 + (-3) × 2", a: -11 }, { q: "(-6) + 4² ÷ (-8)", a: -8 },
   { q: "5 × (-2) - (-3) × 4", a: 2 }, { q: "(-1)³ × 7 + 9", a: 2 },
 ];
+
+/* ---- 数学の「型＋ランダムな数」で標準問題をつくる共通部品（フェーズ4）----
+   term(係数, 文字, 先頭か)：2x / -x / x のような項の表示。先頭以外は " + 2x" / " - x" の形。
+   cst(定数)：" + 5" / " - 3"（0 のときは空）。
+   nz(lo, hi)：0 をのぞいた整数。 */
+function term(k, v, first) {
+  const abs = Math.abs(k);
+  const body = (abs === 1 ? "" : String(abs)) + v;
+  if (first) return (k < 0 ? "-" : "") + body;
+  return (k < 0 ? " - " : " + ") + body;
+}
+function cst(n) { return n === 0 ? "" : (n > 0 ? ` + ${n}` : ` - ${-n}`); }
+function nz(lo, hi) { let n = 0; while (n === 0) n = rint(lo, hi); return n; }
+function pickOne(arr) { return arr[rint(0, arr.length - 1)]; }
+
+/* 正負の数の標準：型を7つ持ち、数はその場で決める。4回に1回は固定の HYOJUN からも出す。
+   答えはすべて整数（わり算は割り切れる数だけ作る）。tools/verify.mjs が式を計算して検算する。 */
+function genStd_seifu(level) {
+  if (Math.random() < 0.25) return genFromPool(HYOJUN);
+  const t = rint(1, 7);
+  let q, a;
+  if (t === 1) {        // 3つの数のたし算・ひき算
+    const x = nz(-15, 15), y = nz(-15, 15), z = nz(-15, 15);
+    const o1 = pickOne(["+", "-"]), o2 = pickOne(["+", "-"]);
+    q = `${fmt(x)} ${o1} ${fmt(y)} ${o2} ${fmt(z)}`;
+    a = (o1 === "+" ? x + y : x - y); a = (o2 === "+" ? a + z : a - z);
+  } else if (t === 2) { // 2つの数のかけ算（どちらかは負）
+    const x = nz(-9, 9), y = rint(2, 9) * (x > 0 ? -1 : pickOne([1, -1]));
+    q = `${fmt(x)} × ${fmt(y)}`; a = x * y;
+  } else if (t === 3) { // わり算（割り切れる）
+    const d = rint(2, 9) * pickOne([1, -1]), ans = nz(-9, 9);
+    q = `${fmt(d * ans)} ÷ ${fmt(d)}`; a = ans;
+  } else if (t === 4) { // 3つの数のかけ算
+    const x = nz(-5, 5), y = nz(-5, 5), z = nz(-4, 4);
+    q = `${fmt(x)} × ${fmt(y)} × ${fmt(z)}`; a = x * y * z;
+  } else if (t === 5) { // 累乗：(-n)² / -n² / (-n)³ / -n³
+    const f = rint(1, 4), n = f <= 2 ? rint(2, 6) : rint(2, 4);
+    if (f === 1) { q = `(-${n})²`; a = n * n; }
+    else if (f === 2) { q = `-${n}²`; a = -n * n; }
+    else if (f === 3) { q = `(-${n})³`; a = -n * n * n; }
+    else { q = `-${n}³`; a = -n * n * n; }
+  } else if (t === 6) { // 絶対値
+    const x = nz(-12, 12), y = nz(-12, 12), f = rint(1, 3);
+    if (f === 1) { q = `|${x}| + |${y}|`; a = Math.abs(x) + Math.abs(y); }
+    else if (f === 2) { q = `|${x}| - |${y}|`; a = Math.abs(x) - Math.abs(y); }
+    else { q = `|${x} - ${fmt(y)}|`; a = Math.abs(x - y); }
+  } else {              // 四則の混じった計算（かけ算を先に）
+    const x = nz(-6, 6), y = nz(-6, 6), z = nz(-12, 12);
+    if (Math.random() < 0.5) { q = `${fmt(x)} × ${fmt(y)} + ${fmt(z)}`; a = x * y + z; }
+    else { q = `${fmt(z)} - ${fmt(x)} × ${fmt(y)}`; a = z - x * y; }
+  }
+  return { q, a, kind: "標準" };
+}
 const genHyojun = () => ({ ...HYOJUN[rint(0, HYOJUN.length - 1)], kind: "標準" });
 
 function shuffle(arr) { return arr.map(v => [Math.random(), v]).sort((a, b) => a[0] - b[0]).map(v => v[1]); }

@@ -125,7 +125,7 @@
 | `22_boss.jsx` | `DarkNumber` |
 | `23_magi.jsx` | `Magi` |
 | `24_hpbar.jsx` | `HPBar` |
-| `30_quiz_engine.jsx` | `rint` / `fmt` / `shuffle` / `makeChoices` / `pickAnswerMode` / `parseInput` ＋ 正負の数（`genKihon` / `HYOJUN`） |
+| `30_quiz_engine.jsx` | `rint` / `fmt` / `shuffle` / `makeChoices` / `pickAnswerMode` / `parseInput` ＋ 正負の数（`genKihon` / `HYOJUN`）＋ 数学の標準問題づくりの共通部品（`term` / `cst` / `nz` / `pickOne`）と `genStd_seifu`（型＋ランダムな数。4回に1回は `HYOJUN` から） |
 | `31_ai.jsx` | `AI_PROXY_URL` / `callClaude` |
 | `32_math_seifu_ai.jsx` | `TEACHER` / `EXPLAIN_SYSTEM` / `genOyou` / `localExplain` |
 | `33_answer_check.jsx` | `normText` / `sameAns` |
@@ -137,9 +137,9 @@
 | `34_kokugo_kobun.jsx` | 国語・古文ひとそろい。`KOBUN_DATA`（20問：歴史的仮名遣い・古語・竹取物語の基本）/ `genKobunProblem` / `localExplainKobun` / `KOBUN_EXPLAIN_SYSTEM`。古語は**意味が1つに決まるものだけ**（をかし・あやし等は別解が出るので入れない）。本文の長い引用はしない |
 | `34_kokugo_kotoba.jsx` | 国語・語彙ひとそろい。`GOI_DATA`（対義語10・類義語10・四字熟語10）/ `genGoiProblem` / `localExplainGoi` / `GOI_EXPLAIN_SYSTEM`。4択のみ。Lv1-2は対義語・類義語、Lv3以降で四字熟語（□に入る漢字）。各問に `why`。ダミーは手書きで、別解（もう1つの対義語・類義語）を入れないこと。**`34_kokugo_kanji.jsx` より後に並ぶ名前にしてある**（`KOKUGO_TEACHER` を使うため） |
 | `35_subjects_meta.jsx` ★ | `SUBJECT_META`（教科を束ねる表。数学・英語・国語・理科・社会の5教科） |
-| `36_math_moji.jsx` | 文字式ひとそろい |
-| `37_math_houtei.jsx` | 方程式ひとそろい |
-| `38_math_units.jsx` ★ | `genFromPool` / `MATH_UNITS` / `MATH_UNIT_KEYS` |
+| `36_math_moji.jsx` | 文字式ひとそろい（`genStd_moji`＝型＋ランダムな数の標準問題を含む） |
+| `37_math_houtei.jsx` | 方程式ひとそろい（`genStd_houtei`＝解を先に決めてから式を作る標準問題を含む） |
+| `38_math_units.jsx` ★ | `genFromPool` / `MATH_UNITS` / `MATH_UNIT_KEYS`。各単元の `genStd` が「標準」の問題（Lv3以降）。無ければ従来どおり `pool` から |
 | `39_kokugo_units.jsx` ★ | `KOKUGO_UNITS`（国語の部屋の表：問題の作り方・ボス名・解説・「もっとかんたんに」の指示）/ `KOKUGO_UNIT_KEYS` / `SUBJECT_ROOMS`（試練の間を持つ教科＝数学・国語の一覧。部屋名は `40_i18n.jsx` の `rooms` / `kokugoRooms`）。**34・35・38 より後でなければ壊れる**。国語の部屋を足すときは「①`KOKUGO_UNITS` に1項目 ②`KOKUGO_UNIT_KEYS` に並べる ③`kokugoRooms` に部屋名」の3点セット |
 | `40_i18n.jsx` | `LANG` / `STR`（辞書）/ `t()` ← ①の作業はここが中心。案内文は用途ごとに別キー（`inputHint`＝数値入力／`inputHintText`＝文字入力／`arrangeHint`＝ならべかえの見出し／`arrangeTrayHint`＝札を置く枠が空のとき）。**1本にまとめ直さないこと** |
 | `45_dev_panel.jsx` | `DEV_PANEL_ENABLED` / `PROGRESS`（＝ロードマップと同じ内容のチェックリスト。`future: true` は件数に数えない）/ `AccountBox`（親用：メール登録・ログイン）/ `DeviceTransfer`（セーブの引き継ぎ：端末IDの表示・コピー・切り替え）/ `DevPanel`。⚠ セーブ本体はFirestoreの `users/{uid}`（2026-11-20〜。それ以前は `users/{端末ID}`）。ログイン状態は端末にだけあるので、**ホーム画面のアイコンを消すと匿名のままのセーブには戻れない**（2026-10-31に端末ID方式で実際に発生）。メール登録済みなら「登録済みのメールでログイン」で戻れる。ルールのロック後は「セーブの引き継ぎ」は効かない（端末ID側が読めないため）。`DEV_PANEL_ENABLED` を false にするとこの機能も消えるので、そのときは別の場所へ移すこと |

@@ -160,6 +160,18 @@ for (const key of get("MATH_UNIT_KEYS") || []) {
     p.choices = get("makeChoices")(p.a);
     checkProblem(p, `数学/${U.name} Lv${lv}「${p.q}」`, fails, { mathUnit: key });
   }
+  // 標準（型＋ランダムな数）：答えを検算し、100通り以上あることも確かめる（フェーズ4の目標）
+  if (typeof U.genStd === "function") {
+    const std = new Set();
+    for (const lv of LEVELS) for (let i = 0; i < TRIES; i++) {
+      const p = { ...U.genStd(lv), type: "number", ui: "choice" };
+      p.choices = get("makeChoices")(p.a);
+      std.add(p.q);
+      checkProblem(p, `数学/${U.name} 標準 Lv${lv}「${p.q}」`, fails, { mathUnit: key });
+    }
+    if (std.size < 100) fails.push(`数学/${U.name}：標準の問題が${std.size}通りしかない（100通り以上にする）`);
+    report.push(`数学/${U.name}：標準（型＋数）${std.size}通り`);
+  }
   (U.pool || []).forEach((p, i) => {
     const pp = { ...p, type: "number", ui: "choice", choices: get("makeChoices")(p.a) };
     checkProblem(pp, `数学/${U.name} 標準${i + 1}「${p.q}」`, fails, { mathUnit: key });
