@@ -9,9 +9,14 @@ const KOKUGO_UNITS = {
     gen: genKokugoProblem, explain: KOKUGO_EXPLAIN_SYSTEM, localExplain: localExplainKokugo,
     easier: "「もっとかんたんに」と言われました。その漢字の覚え方を、別の切り口（へん・つくりの意味、にた形の漢字とのくらべ方、送りがなの見分け方など）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。",
   },
+  goi: {
+    name: "語彙", bossName: "ツイン・ミラージュ", tokens: ["対", "類", "義", "語", "四", "字", "熟", "反"],
+    gen: genGoiProblem, explain: GOI_EXPLAIN_SYSTEM, localExplain: localExplainGoi,
+    easier: "「もっとかんたんに」と言われました。そのことばの意味を、身近な場面の短い例文を1つだけ使って、いちばんやさしく説明して。漢字1文字ずつの意味から考えるヒントも1つ添えて。同じ説明のくり返しは避けて。",
+  },
 };
 /* 部屋の並び順（試練の間の上から）。i 番目 → 単元キー */
-const KOKUGO_UNIT_KEYS = ["kanji"];
+const KOKUGO_UNIT_KEYS = ["kanji", "goi"];
 
 /* 試練の間（単元選択）を持つ教科の一覧。ここに無い教科は「科目選択→すぐバトル」のまま。
    roomsKey は 40_i18n.jsx の部屋名リストのキー。 */
