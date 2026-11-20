@@ -120,6 +120,8 @@ function expectFromV(v) {
     case "weight": return v.g / 100;
     case "speed": return v.d / v.sec;
     case "time": return v.d / v.s;
+    // 社会：時差（日本＝東経135度。答えは24時間表記の「〇時」）
+    case "jisa": { const h = v.jp - (135 - v.lon) / 15; return `${((h % 24) + 24) % 24}時`; }
     default: throw new Error("知らない v.t: " + v.t);
   }
 }
@@ -275,6 +277,7 @@ const tables = [
   ["HIREI_TERMS", d => d.q], ["HEIMEN_TERMS", d => d.q], ["KUKAN_TERMS", d => d.q], ["DATA_TERMS", d => d.q],
   ["WH_DATA", d => d.q],
   ["DOUBUTSU_DATA", d => d.q], ["BUSSHITSU_DATA", d => d.q], ["HIKARI_DATA", d => d.q], ["DAICHI_DATA", d => d.q],
+  ["NIHON_DATA", d => d.q], ["KANKYOU_DATA", d => d.q], ["SHOCHIIKI_DATA", d => d.q], ["KODAI_DATA", d => d.q], ["CHUSEI_DATA", d => d.q],
 ];
 for (const [name, keyOf] of tables) checkDuplicates(name, get(name), keyOf, fails);
 

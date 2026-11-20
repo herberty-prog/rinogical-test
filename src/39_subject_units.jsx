@@ -109,8 +109,33 @@ const SHAKAI_UNITS = {
     gen: genShakaiProblem, explain: SHAKAI_EXPLAIN_SYSTEM, localExplain: localExplainShakai,
     easier: "「もっとかんたんに」と言われました。その用語の覚え方を、別の切り口（言葉の意味、地球儀や地図でのイメージ、対になる知識とのセットなど）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。政治や歴史の話には立ち入らないで。",
   },
+  nihon: {
+    name: "日本の姿", bossName: "ロスト・アーキペラゴ", tokens: ["135°", "12海里", "200海里", "県", "島", "時差", "東", "西"],
+    gen: genNihonProblem, explain: NIHON_EXPLAIN_SYSTEM, localExplain: localExplainNihon,
+    easier: "「もっとかんたんに」と言われました。その用語やできごとの覚え方を、別の切り口（言葉の意味、地図や年表でのイメージ、対になる知識とのセット、語呂合わせなど）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。時差の問題なら「経度の差÷15」の手順で。政治的な意見は言わないで。",
+  },
+  kankyou: {
+    name: "人々の生活と環境", bossName: "ストーム・ノマド", tokens: ["熱帯", "温帯", "冷帯", "寒帯", "砂漠", "ゲル", "米", "祈"],
+    gen: (lv) => genTableProblem(KANKYOU_DATA, lv), explain: KANKYOU_EXPLAIN_SYSTEM, localExplain: localExplainKankyou,
+    easier: "「もっとかんたんに」と言われました。その用語やできごとの覚え方を、別の切り口（言葉の意味、地図や年表でのイメージ、対になる知識とのセット、語呂合わせなど）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。宗教は事実だけを伝え、よしあしは言わないで。",
+  },
+  shochiiki: {
+    name: "世界の諸地域", bossName: "ワールド・イーター", tokens: ["EU", "ASEAN", "川", "山脈", "石油", "米", "€", "羊"],
+    gen: (lv) => genTableProblem(SHOCHIIKI_DATA, lv), explain: SHOCHIIKI_EXPLAIN_SYSTEM, localExplain: localExplainShochiiki,
+    easier: "「もっとかんたんに」と言われました。その用語やできごとの覚え方を、別の切り口（言葉の意味、地図や年表でのイメージ、対になる知識とのセット、語呂合わせなど）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。政治的な意見は言わないで。",
+  },
+  kodai: {
+    name: "古代", bossName: "エンシェント・クラウン", tokens: ["645", "710", "794", "土偶", "古墳", "仏", "都", "律令"],
+    gen: (lv) => genTableProblem(KODAI_DATA, lv), explain: KODAI_EXPLAIN_SYSTEM, localExplain: localExplainKodai,
+    easier: "「もっとかんたんに」と言われました。その用語やできごとの覚え方を、別の切り口（言葉の意味、地図や年表でのイメージ、対になる知識とのセット、語呂合わせなど）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。鎌倉時代より後の話には立ち入らないで。",
+  },
+  chusei: {
+    name: "中世", bossName: "ショーグン・ファントム", tokens: ["1192", "1221", "1467", "刀", "幕府", "元", "金閣", "銀閣"],
+    gen: (lv) => genTableProblem(CHUSEI_DATA, lv), explain: CHUSEI_EXPLAIN_SYSTEM, localExplain: localExplainChusei,
+    easier: "「もっとかんたんに」と言われました。その用語やできごとの覚え方を、別の切り口（言葉の意味、地図や年表でのイメージ、対になる知識とのセット、語呂合わせなど）から1つだけ選んで、いちばんやさしく説明して。同じ説明のくり返しは避けて。織田信長より後の話には立ち入らないで。",
+  },
 };
-const SHAKAI_UNIT_KEYS = ["sekai"];
+const SHAKAI_UNIT_KEYS = ["sekai", "nihon", "kankyou", "shochiiki", "kodai", "chusei"];
 
 /* 試練の間（単元選択）の一覧。全教科が「科目→試練の間→バトル」（2026-11-21 フェーズ5-0〜）。
    units は単元の表（数学は MATH_UNITS）、keys は部屋の並び順、roomsKey は 40_i18n.jsx の部屋名リストのキー。 */

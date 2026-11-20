@@ -3,7 +3,7 @@
 中1の娘むけ・ダークファンタジー×粘土風パステルの学習アプリ。
 
 ## 現在の構成
-- **React コンポーネント群**：`src/` の46ファイル（フェーズ5で増えていく）。**これが最新の“設計図”。編集対象はここ。** ファイル名の先頭の番号が、つなぐ順番。
+- **React コンポーネント群**：`src/` の51ファイル（フェーズ5で増えていく）。**これが最新の“設計図”。編集対象はここ。** ファイル名の先頭の番号が、つなぐ順番。
 - **`index.html` は生成物**。手で編集しない（次のビルドで上書きされる）。
 - **このフォルダ内の注意**：`Rinogical.jsx` と `Rinogical.ver3`〜`ver15`、`index.ver1`〜`ver20`、`_archive/` は過去のバックアップ。**これらは読まない・触らない・変更しない。**
   - `Rinogical.jsx` は分割前の1ファイル版。記録として残してあるだけで、**もう編集しない**（編集しても index.html には反映されない）。
@@ -57,8 +57,8 @@
 - [x] 5-1 数学：比例と反比例／平面図形／空間図形／データの活用（2026-11-21）。図は `25_figure.jsx` の `Figure`（問題に `fig` を持たせるとSVGで表示）。計算の問題は `v`（検算用の材料）を持ち、`npm run verify` が答えを計算し直す。標準は各50通り以上
 - [x] 5-2 英語：一般動詞／can／三人称単数／疑問詞／現在進行形／過去形（2026-11-21）。`34_english_verbs.jsx`（動詞の表から組み立て）・`34_english_wh.jsx`。4択の別解（can の文の does、現在の文の過去形、be動詞のダミーで「I am a dog.」が成り立つ等）を避ける作り方はファイル冒頭に記載
 - [x] 5-3 理科：動物のなかま（46問）／身のまわりの物質（45問＋密度・濃度の計算）／光・音・力（39問＋音・ばね・重さの計算）／大地の変化（50問＋地震の波の計算）（2026-11-21）。表は `genTableProblem`（30）で4択に。計算は `v` を持ち verify が検算
-- [ ] 社会（地理）：日本の姿／人々の生活と環境／世界の諸地域
-- [ ] 社会（歴史・東京書籍）：古代（文明〜平安）／中世（鎌倉〜室町）
+- [x] 5-4 社会（地理）：日本の姿（42問＋時差の計算）／人々の生活と環境（46問）／世界の諸地域（55問）（2026-11-21）
+- [x] 5-4 社会（歴史・東京書籍）：古代（文明〜平安・56問）／中世（鎌倉〜室町・56問）（2026-11-21）。教科書の目次とは未照合の候補版。学校の進度と合わない問題があれば1行ずつ差し替える
 
 ## いま進行中 / これからの方針
 - **① i18n の仕上げ**：`STR` 辞書 ＋ `LANG` ＋ `t()` は実装済み。残りは Tutorial／Home／Battle／ExplainPanel／Victory を `t()` に置換（キーは用意済み）。
@@ -121,7 +121,7 @@
   - **進行中（2026-11-02〜・C方式）**：①匿名ログイン＋自動引っ越し【済・テスト版】②メール＋パスワードの登録／ログイン画面【済・テスト版。devパネル内の「アカウント（親用）」＝`AccountBox`。関数は `registerEmail`（匿名にひも付け・uid不変）/ `loginEmail`（切り替えて再起動）/ `authErrorText`】③本人がFirebaseで「匿名」「メール/パスワード」を有効化【済 2026-11-10。匿名の自動クリーンアップはオフ】④引き継ぎ（本人の端末）【済。けいのセーブを uid 側へ移し、メール登録済み】。娘はまだ未使用のため不要 ⑤ルールを `match /users/{uid} { allow read, write: if request.auth != null && request.auth.uid == uid; }` に切り替え【済 2026-11-20 22:56公開。本番 rinogical にも同日反映済み】
   - ⚠ **ルールを切り替えるのは④が終わってから。** 切り替え後は端末ID側（`users/dev-…`）が読めなくなり、引き継ぎも自動引っ越しも効かなくなる。
 
-## `src/` の中身（46ファイル・つなぐ順）
+## `src/` の中身（51ファイル・つなぐ順）
 | ファイル | 中身 |
 |---|---|
 | `00_header.jsx` | import 2行＋冒頭コメント。**import を書いてよいのはここだけ** |
@@ -146,6 +146,7 @@
 | `34_rika_shokubutsu.jsx` | 理科ひとそろい。`RIKA_DATA`（30問）/ `genRikaProblem` / `localExplainRika` / `RIKA_TEACHER` / `RIKA_EXPLAIN_SYSTEM`。**4択のみ。`adv:false`＝基本6問／`adv:true`＝発展4問で、Lv1-2は基本のみ、Lv3以降で発展が混ざる。** 各問に `why`（一言解説）を持たせ、オフライン時のローカル解説に使う。ダミーは1問ずつ手書き（自動生成禁止） |
 | `34_rika_unit2_doubutsu.jsx` 〜 `34_rika_unit5_daichi.jsx` | 理科のフェーズ5の4単元。`DOUBUTSU_DATA` / `BUSSHITSU_DATA` / `HIKARI_DATA` / `DAICHI_DATA`（1問1行・手書きのダミー・`why`・`adv`）と、計算問題（`genBusshitsuCalc` / `genHikariCalc` / `genDaichiCalc`、Lv3以降に2〜3割）・`localExplain〇〇`・`〇〇_EXPLAIN_SYSTEM`。**`RIKA_TEACHER` を使うので `34_rika_shokubutsu.jsx` より後に並ぶ名前（unit2〜5）にしてある** |
 | `34_shakai_sekai.jsx` | 社会（地理）ひとそろい。`SHAKAI_DATA`（30問）/ `genShakaiProblem` / `localExplainShakai` / `SHAKAI_TEACHER` / `SHAKAI_EXPLAIN_SYSTEM`。**4択のみ。`adv:false`＝基本6問／`adv:true`＝発展4問で、Lv1-2は基本のみ、Lv3以降で発展が混ざる。** 各問に `why` を持たせている。ダミーは1問ずつ手書きで、**別解が生まれないよう確認済み**（パリ子午線の件。⑦参照） |
+| `34_shakai_unit2_nihon.jsx` 〜 `34_shakai_unit6_chusei.jsx` | 社会のフェーズ5の5単元。`NIHON_DATA`（＋時差の計算 `genJisa`。24時間表記・サマータイムなし）/ `KANKYOU_DATA` / `SHOCHIIKI_DATA` / `KODAI_DATA` / `CHUSEI_DATA`（1問1行・手書きのダミー・`why`・`adv`）と `localExplain〇〇`・`〇〇_EXPLAIN_SYSTEM`。クロス先生の設定は unit2 の `shakaiSystem(topic, extra)` を共用。**`SHAKAI_TEACHER` を使うので `34_shakai_sekai.jsx` より後に並ぶ名前（unit2〜6）にしてある** |
 | `34_kokugo_kimari.jsx` | 国語・文法（言葉のきまり）ひとそろい。`KIMARI_DATA`（26問：言葉の単位・文の成分・文節の関係・品詞・敬語の基本）/ `genKimariProblem` / `localExplainKimari` / `KIMARI_EXPLAIN_SYSTEM`。`adv:true` は Lv3 以降。**敬語は中2の内容だが本人判断で基本（尊敬・謙譲・丁寧の区別）だけ入れた例外**。それ以上は広げない |
 | `34_kokugo_kobun.jsx` | 国語・古文ひとそろい。`KOBUN_DATA`（20問：歴史的仮名遣い・古語・竹取物語の基本）/ `genKobunProblem` / `localExplainKobun` / `KOBUN_EXPLAIN_SYSTEM`。古語は**意味が1つに決まるものだけ**（をかし・あやし等は別解が出るので入れない）。本文の長い引用はしない |
 | `34_kokugo_kotoba.jsx` | 国語・語彙ひとそろい。`GOI_DATA`（対義語10・類義語10・四字熟語10）/ `genGoiProblem` / `localExplainGoi` / `GOI_EXPLAIN_SYSTEM`。4択のみ。Lv1-2は対義語・類義語、Lv3以降で四字熟語（□に入る漢字）。各問に `why`。ダミーは手書きで、別解（もう1つの対義語・類義語）を入れないこと。**`34_kokugo_kanji.jsx` より後に並ぶ名前にしてある**（`KOKUGO_TEACHER` を使うため） |
