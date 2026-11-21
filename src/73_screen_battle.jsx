@@ -20,8 +20,8 @@ function MarkedText({ text, mark }) {
 /* 同じ問題が続けて出ないように、教科・単元ごとに最近出た問題の目印を覚えておく（フェーズ4）。
    アプリを開いている間はバトルをまたいで覚えている。AIの応用問題は対象外（毎回ちがうため）。 */
 const RECENT_PROBLEMS = {};
-const RECENT_N = 4;      // 直近この数の問題とは重ならないようにする
-const RECENT_TRIES = 8;  // 引き直す回数の上限（問題数が少ない単元でも止まらないように）
+const RECENT_N = 6;      // 直近この数の問題とは重ならないようにする（2026-11-21に4→6。漢字10問の部屋で同じ字が近くに出たため）
+const RECENT_TRIES = 12; // 引き直す回数の上限（問題数が少ない単元でも止まらないように）
 
 function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, onWin, onHome }) {
   // 数学のときは単元（正負の数 / 文字式 …）の設定 U を読む。英語のときは U=null。
@@ -57,9 +57,11 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
     let p;
     for (let i = 0; i < RECENT_TRIES; i++) {
       p = await makeProblem(lv, i > 0); // 引き直しのときはAIを呼ばない（通信で待たせないため）
-      if (p.kind === "応用" || !recent.includes(`${p.q}|${p.a}`)) break;
+      if (p.kind === "応用" || !recent.includes(p.rid || `${p.q}|${p.a}`)) break;
     }
-    recent.unshift(`${p.q}|${p.a}`);
+    // それでも直前とまったく同じなら、もう少しだけ引き直す（「立て続けに同じ問題」だけは必ず避ける）
+    for (let i = 0; i < 20 && p.kind !== "応用" && recent[0] === (p.rid || `${p.q}|${p.a}`); i++) p = await makeProblem(lv, true);
+    recent.unshift(p.rid || `${p.q}|${p.a}`); // rid（同じ問題の目印）があればそれで覚える
     recent.length = Math.min(recent.length, RECENT_N);
     const ch = p.choices || (p.type === "number" ? makeChoices(p.a) : []);
     setProblem(p); setChoices(ch);
@@ -211,6 +213,8 @@ function Battle({ char, player, setPlayer, subjectKey, unitKey, prog, nickname, 
                   : built.map((ti, k) => (
                       <span key={k} style={{ ...clay(C.lav), padding: "6px 12px", fontWeight: 900, color: C.bg0, fontSize: 18 }}>{problem.tiles[ti]}</span>
                     ))}
+                {/* 文の最後の記号（? か .）。札ではなく、はじめから枠の右はしに出しておく */}
+                {problem.end && <span style={{ fontWeight: 900, fontSize: 22, color: C.gold }}>{problem.end}</span>}
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginBottom: 10 }}>
                 {problem.tiles.map((w, i) => (

@@ -33,7 +33,7 @@ function genEnglishProblem(level) {
 
   if (form === "arrange") {
     const words = [s, be, ...pred.split(" ")];
-    return { type: "text", ui: "arrange", kind: "ならべかえ", q: "", a: words.join(" "), tiles: shuffle(words.slice()) };
+    return { type: "text", ui: "arrange", kind: "ならべかえ", q: "", a: words.join(" "), tiles: shuffle(words.slice()), end: "." };
   }
   if (form === "input") {
     return { type: "text", ui: "input", kind: "入力", q: `${s} ___ ${pred}.`, a: be, choices: CH };

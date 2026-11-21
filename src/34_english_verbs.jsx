@@ -70,7 +70,10 @@ function enForm(level) {
 const enChoice = (q, a, ng, kind) => ({ type: "text", ui: "choice", kind, q, a, choices: shuffle([a].concat(ng)) });
 const enInput = (q, a, alts) => ({ type: "text", ui: "input", kind: "入力", q, a, alts: alts || [] });
 /* ならべかえ：札の配列（主語は1枚）。正解は札をスペースでつないだ文（文末の . ? はつけない） */
-const enArrange = (tiles) => ({ type: "text", ui: "arrange", kind: "ならべかえ", q: "", a: tiles.join(" "), tiles: shuffle(tiles.slice()) });
+/* end … 文の最後につく記号。札には入れず、画面の並べる枠の右はしに表示する（疑問文は「?」、ふつうの文は「.」） */
+const EN_ASK_WORDS = /^(Do|Does|Did|Can|Is|Are|Am|Was|Were|What|Who|Where|When|How|Whose|Which)$/;
+const enArrange = (tiles) => ({ type: "text", ui: "arrange", kind: "ならべかえ", q: "", a: tiles.join(" "), tiles: shuffle(tiles.slice()),
+  end: EN_ASK_WORDS.test(tiles[0]) ? "?" : "." });
 const enWords = (str) => str.split(" ");
 
 /* ---------- 一般動詞（I / you / 複数の主語。三人称単数は別の単元） ---------- */

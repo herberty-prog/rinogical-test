@@ -41,13 +41,14 @@ function genKokugoProblem(level) {
   const d = KANJI_DATA[rint(0, KANJI_DATA.length - 1)];
   const kaki = level >= 3 && Math.random() < 0.5;
 
+  // rid … 「同じ問題」とみなす目印。読みと書きで文はちがっても同じ漢字なら同じ問題として、続けて出さない。
   // mark は「問題文の中で目立たせる部分」。答えそのものではなく、答える対象のほうを指す。
   if (kaki) {
     // 書き：かな書きの例文を見せて、正しい漢字を4択で選ぶ
-    return { type: "text", ui: "choice", kind: "書き", q: d.kanaS, a: d.kaki, choices: shuffle([d.kaki].concat(d.kakiNG)), mark: d.yomi };
+    return { type: "text", ui: "choice", kind: "書き", q: d.kanaS, a: d.kaki, choices: shuffle([d.kaki].concat(d.kakiNG)), mark: d.yomi, rid: d.kaki };
   }
   // 読み：漢字入りの例文を見せて、正しい読みを4択で選ぶ
-  return { type: "text", ui: "choice", kind: "読み", q: d.kanjiS, a: d.yomi, choices: shuffle([d.yomi].concat(d.yomiNG)), mark: d.kaki };
+  return { type: "text", ui: "choice", kind: "読み", q: d.kanjiS, a: d.yomi, choices: shuffle([d.yomi].concat(d.yomiNG)), mark: d.kaki, rid: d.kaki };
 }
 
 /* 国語のローカル解説フォールバック（電波が悪いとき用） */
