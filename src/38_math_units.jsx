@@ -29,25 +29,29 @@ const MATH_UNITS = {
   hirei: {
     name: "比例と反比例", bossName: "グラフ・ファントム",
     tokens: ["y=ax", "x", "y", "a", "(2,4)", "O", "y=6/x", "-x"],
-    genKihon: genKihon_hirei, pool: termPool(HIREI_TERMS), genStd: genStd_hirei, genOyou: null,
+    genKihon: genKihon_hirei, pool: termPool(HIREI_TERMS), genStd: genStd_hirei,
+    genOyou: (lv) => genOyouV(lv, OYOU_HIREI_SYS, ["hirei_y2", "hanpi_y2", "hirei_a", "hanpi_a"]), // 37_math_oyou_ai.jsx（答えはアプリが計算）
     explain: EXPLAIN_HIREI, localExplain: localExplainHirei,
   },
   heimen: {
     name: "平面図形", bossName: "コンパス・レイス",
     tokens: ["π", "⊥", "//", "弧", "弦", "90°", "r", "360°"],
-    genKihon: genKihon_heimen, pool: termPool(HEIMEN_TERMS), genStd: genStd_heimen, genOyou: null,
+    genKihon: genKihon_heimen, pool: termPool(HEIMEN_TERMS), genStd: genStd_heimen,
+    genOyou: (lv) => genOyouV(lv, OYOU_HEIMEN_SYS, ["circ_len", "circ_area", "arc", "sector", "deg_from_arc"]), // 37_math_oyou_ai.jsx（答えはアプリが計算）
     explain: EXPLAIN_HEIMEN, localExplain: localExplainHeimen,
   },
   kukan: {
     name: "空間図形", bossName: "ヴォイド・キューブ",
     tokens: ["cm³", "π", "1/3", "面", "辺", "r", "h", "球"],
-    genKihon: genKihon_kukan, pool: termPool(KUKAN_TERMS), genStd: genStd_kukan, genOyou: null,
+    genKihon: genKihon_kukan, pool: termPool(KUKAN_TERMS), genStd: genStd_kukan,
+    genOyou: (lv) => genOyouV(lv, OYOU_KUKAN_SYS, ["vol_cuboid", "vol_cyl", "vol_cone", "vol_pyr", "vol_sphere", "surf_cube", "surf_cyl", "surf_sphere"]), // 37_math_oyou_ai.jsx（答えはアプリが計算）
     explain: EXPLAIN_KUKAN, localExplain: localExplainKukan,
   },
   data: {
     name: "データの活用", bossName: "ノイズ・ゴーレム",
     tokens: ["平均", "中央", "最頻", "範囲", "度数", "0.25", "%", "階級"],
-    genKihon: genKihon_data, pool: termPool(DATA_TERMS), genStd: genStd_data, genOyou: null,
+    genKihon: genKihon_data, pool: termPool(DATA_TERMS), genStd: genStd_data,
+    genOyou: (lv) => genOyouV(lv, OYOU_DATA_SYS, ["mean", "median", "range", "rel", "prob"]), // 37_math_oyou_ai.jsx（答えはアプリが計算）
     explain: EXPLAIN_DATA, localExplain: localExplainData,
   },
 };

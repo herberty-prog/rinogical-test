@@ -21,9 +21,10 @@ async function genOyou(level, sysOverride) {
   const clean = txt.replace(/```json|```/g, "").trim();
   const obj = JSON.parse(clean);
   if (typeof obj.a !== "number" || !obj.q) throw new Error("bad");
-  let choices = Array.isArray(obj.choices) ? obj.choices.filter(n => typeof n === "number") : [];
-  if (!choices.includes(obj.a) || choices.length < 4) choices = makeChoices(obj.a);
-  return { q: obj.q, a: obj.a, choices: shuffle(choices).slice(0, 4), kind: "応用" };
+  // AIの選択肢から、正解1つ＋重ならない3つを取る（以前は5つ以上返ってきたとき正解が切り落とされることがあった）
+  const others = Array.isArray(obj.choices) ? [...new Set(obj.choices.filter(n => typeof n === "number" && n !== obj.a))] : [];
+  const choices = others.length >= 3 ? shuffle([obj.a].concat(shuffle(others).slice(0, 3))) : makeChoices(obj.a);
+  return { q: obj.q, a: obj.a, choices, kind: "応用" };
 }
 
 /* ローカル解説フォールバック */

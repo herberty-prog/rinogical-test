@@ -190,6 +190,15 @@ function checkProblem(p, where, fails, opt = {}) {
       const ok = checkMath(opt.mathUnit, p);
       if (ok === false) fails.push(`${where} 計算すると答えが合わない（a=${p.a}）`);
     } catch (e) { fails.push(`${where} 式を計算できない（${e.message}）`); }
+    // AIの応用問題でアプリが使う計算（37_math_oyou_ai.jsx の oyouAnswer）も、同じ答えになるか確かめる
+    const OV = get("OYOU_V");
+    if (p.v && OV[p.v.t]) {
+      const r = get("oyouAnswer")(p.v, Object.keys(OV));
+      if (r) {
+        const got = r.form === "pi" ? piS(r.a) : r.a;
+        if (String(got) !== String(p.a) && !near(Number(got), p.a)) fails.push(`${where} 応用問題用の計算（oyouAnswer）と答えが合わない（${got} と ${p.a}）`);
+      }
+    }
   }
 }
 
