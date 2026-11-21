@@ -29,6 +29,8 @@ export default function Rinogical() {
     (async () => {
       const sleep = new Promise(r => setTimeout(r, 1300)); // ローディング演出の最低表示時間
       await initFirebase();
+      // メール登録済みの端末でログインが切れていたら、セーブを読まずに「ログインし直し」画面へ（保存も始めない）
+      if (fb.needLogin) { await sleep; if (alive) setScreen("relogin"); return; }
       const { key, data } = await loadSaveData(); // ログインできればuid、できなければ端末IDに保存
       deviceIdRef.current = key;
       await sleep;
@@ -106,6 +108,7 @@ export default function Rinogical() {
 
       <div style={{ maxWidth: 460, margin: "0 auto", position: "relative" }}>
         {screen === "loading" && <Loading tip={tip} />}
+        {screen === "relogin" && <ReLogin email0={fb.needLogin} />}
         {screen === "character" && <CharacterSelect onPick={(c) => { setCharacter(c); setScreen("name"); }} />}
         {screen === "name" && (
           <NameInput accent={character?.accent} imgSrc={assetUrl(character?.img)}

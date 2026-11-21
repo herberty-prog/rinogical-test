@@ -103,9 +103,29 @@ async function initAuth(app) {
     fb.authMod = am;
     fb.auth = am.getAuth(app);
     // 前回のログイン状態の復元を待つ（ここで待たないと毎回新しい匿名ユーザーができてしまう）
+    try { fb.auth.languageCode = "ja"; } catch (e) {} // パスワード再設定などのメールを日本語で送る
     let user = await new Promise(resolve => {
       const off = am.onAuthStateChanged(fb.auth, u => { off(); resolve(u); });
     });
+    // メールアドレスを変えた・パスワードを変えたなどでログインが切れていないか確かめる。
+    // 切れていたらログアウト扱い。電波が悪いだけのときはそのまま続ける（セーブは次回に）
+    if (user && !user.isAnonymous) {
+      try { await user.reload(); await user.getIdToken(true); }
+      catch (e) {
+        const c = (e && e.code) || "";
+        if (["auth/user-token-expired", "auth/user-disabled", "auth/user-not-found", "auth/invalid-user-token"].includes(c)) {
+          try { await am.signOut(fb.auth); } catch (e2) {}
+          user = null;
+        }
+      }
+    }
+    // メール登録済みのセーブがあった端末で、ログインが切れていたら：新しい匿名のセーブを作らず「ログインし直し」画面へ
+    // （ここで匿名を作ると、空のセーブで始まってしまい、本物のセーブが見えなくなるため）
+    if (!user && rememberedEmail()) {
+      fb.uid = null; fb.needLogin = rememberedEmail();
+      console.warn("[Rinogical] ログインが切れています。ログインし直してください");
+      return;
+    }
     if (!user) user = (await am.signInAnonymously(fb.auth)).user;
     setAuthUser(user);
     console.info("[Rinogical] ログインOK:", user.isAnonymous ? "匿名" : user.email);
@@ -119,7 +139,10 @@ function setAuthUser(user) {
   fb.uid = user ? user.uid : null;
   fb.isAnonymous = user ? user.isAnonymous : true;
   fb.email = user ? (user.email || null) : null;
+  // メール登録済みのログインなら、この端末に「メールで使っている」ことを覚えておく（ログインが切れたとき用）
+  if (user && !user.isAnonymous && user.email) { try { localStorage.setItem("rino_login_email", user.email); } catch (e) {} }
 }
+function rememberedEmail() { try { return localStorage.getItem("rino_login_email") || ""; } catch (e) { return ""; } }
 
 /* 起動時に呼ぶ：どこに保存するか（key）と、読み込んだセーブ（data）を返す */
 async function loadSaveData() {
@@ -160,6 +183,10 @@ function authErrorText(e) {
     "auth/user-not-found": "このメールは登録されていません",
     "auth/too-many-requests": "試した回数が多すぎます。しばらく待ってからもう一度",
     "auth/network-request-failed": "通信できませんでした。電波のよい所でもう一度",
+    "auth/requires-recent-login": "安全のため、今のパスワードを入れてもう一度",
+    "auth/missing-password": "今のパスワードを入れてください",
+    "auth/missing-email": "メールアドレスを入れてください",
+    "auth/operation-not-supported-in-this-environment": "この画面からは変更できませんでした",
   };
   return m[c] || ("うまくいきませんでした（" + (c || (e && e.message) || "不明") + "）");
 }
@@ -170,6 +197,23 @@ async function registerEmail(email, password) {
   const res = await am.linkWithCredential(fb.auth.currentUser, cred);
   setAuthUser(res.user);
   return res.user;
+}
+/* パスワードを忘れたとき：再設定用のメールを送る（ログインしていなくても使える）。
+   届いたメールのリンクから新しいパスワードを決める。セーブ（uid）はそのまま */
+async function resetPassword(email) {
+  if (!fb.auth) throw { code: "auth/admin-restricted-operation" };
+  await fb.authMod.sendPasswordResetEmail(fb.auth, email.trim());
+}
+/* メールアドレスの変更：今のパスワードで本人確認してから、新しいアドレスに確認メールを送る。
+   確認メールのリンクを押した時点で切り替わる（押すまでは今のアドレスのまま）。セーブ（uid）はそのまま。
+   切り替わるとこの端末のログインが切れることがあるので、次の起動で「ログインし直し」画面が出たら新しいアドレスで入る */
+async function changeEmail(currentPassword, newEmail) {
+  const u = fb.auth && fb.auth.currentUser;
+  if (!u || u.isAnonymous || !u.email) throw { code: "auth/admin-restricted-operation" };
+  const am = fb.authMod;
+  await am.reauthenticateWithCredential(u, am.EmailAuthProvider.credential(u.email, currentPassword));
+  await am.verifyBeforeUpdateEmail(u, newEmail.trim());
+  try { localStorage.setItem("rino_login_email", newEmail.trim()); } catch (e) {} // 次にログインし直すときの入力欄に出す
 }
 /* 登録済みのメールでログイン（別の端末・アイコンを消したあと用）。セーブが切り替わるので呼んだ側で再起動する */
 async function loginEmail(email, password) {

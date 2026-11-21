@@ -59,6 +59,46 @@ function NameInput({ accent, imgSrc, nickname, setNickname, onNext }) {
   );
 }
 
+/* ---------- ログインし直し（11_firebase.jsx の fb.needLogin のとき） ----------
+   メール登録済みのセーブがあった端末でログインが切れたときに出す。ここでは新しいセーブを作らない
+   （作ると空のセーブで始まり、本物のセーブが見えなくなるため）。ログインできたら再起動する */
+function ReLogin({ email0 }) {
+  const [email, setEmail] = useState(email0 || "");
+  const [pw, setPw] = useState("");
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+  const field = { ...clay(C.bg1, false), border: "none", outline: "none", color: C.ink, fontSize: 16,
+    padding: "13px 16px", width: "100%", fontWeight: 700, marginTop: 6, marginBottom: 12, boxSizing: "border-box" };
+  const doLogin = async () => {
+    setBusy(true); setMsg("");
+    try { await loginEmail(email, pw); location.reload(); }
+    catch (e) { setMsg(authErrorText(e)); setBusy(false); }
+  };
+  const doReset = async () => {
+    if (!email.trim()) { setMsg(authErrorText({ code: "auth/missing-email" })); return; }
+    setBusy(true); setMsg("");
+    try { await resetPassword(email); setMsg(t("reloginSent")); }
+    catch (e) { setMsg(authErrorText(e)); }
+    setBusy(false);
+  };
+  return (
+    <div style={{ textAlign: "center", animation: "rino-pop .4s ease" }}>
+      <h2 style={{ fontSize: 22, fontWeight: 900, margin: "8px 0 6px" }}>{t("reloginTitle")}</h2>
+      <p style={{ color: C.inkDim, fontSize: 13, marginBottom: 18, lineHeight: 1.6 }}>{t("reloginSub")}</p>
+      <div style={{ textAlign: "left" }}>
+        <label style={{ fontWeight: 800, color: C.inkDim, fontSize: 14 }}>{t("reloginEmail")}</label>
+        <input style={field} type="email" value={email} onChange={e => setEmail(e.target.value)} autoCapitalize="off" autoCorrect="off" spellCheck={false} />
+        <label style={{ fontWeight: 800, color: C.inkDim, fontSize: 14 }}>{t("reloginPw")}</label>
+        <input style={field} type="password" value={pw} onChange={e => setPw(e.target.value)} />
+      </div>
+      <Btn full bg={C.aqua} onClick={doLogin} disabled={busy || !email.trim() || pw.length < 6}>{t("reloginBtn")}</Btn>
+      <button onClick={doReset} disabled={busy} style={{ background: "none", border: "none", color: C.inkDim, fontSize: 13, fontWeight: 700,
+        textDecoration: "underline", marginTop: 14, cursor: "pointer", fontFamily: "inherit" }}>{t("reloginForgot")}</button>
+      {msg && <div style={{ fontSize: 13, color: C.gold, marginTop: 10, lineHeight: 1.6 }}>{msg}</div>}
+    </div>
+  );
+}
+
 /* ---------- チュートリアル ---------- */
 function Tutorial({ char, nickname, onStart }) {
   return (

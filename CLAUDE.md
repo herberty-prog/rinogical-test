@@ -38,7 +38,7 @@
 
 | フェーズ | 内容 | 状態 |
 |---|---|---|
-| 0 | セキュリティ：匿名ログイン＋メール/パスワード（C方式）、Firestoreのルールをロック | **ほぼ完了（2026-11-20ロック）**。残り：メール変更・パスワード再設定、娘のアカウント登録（娘の端末で本人作業） |
+| 0 | セキュリティ：匿名ログイン＋メール/パスワード（C方式）、Firestoreのルールをロック | **ほぼ完了（2026-11-20ロック）**。メール変更・パスワード再設定も済（2026-11-21、本人の実機確認待ち）。残り：娘のアカウント登録（娘の端末で本人作業） |
 | 1 | 国語の構造整理（科目→単元選択→バトルの2段構成、数学の `MATH_UNITS` 方式が手本）＋語彙ユニット | **完了（2026-11-21）**。※フェーズ1〜4は本人の実機確認待ち（jsdom上の自動テストでは全部屋・Lv1/Lv6・不正解時の解説まで通過済み）。国語の部屋：沈黙の書庫（漢字）・双子鏡の回廊（語彙30問） |
 | 2 | 国語の文法・古文 | **完了（2026-11-21）**。部屋：歯車の時計塔（文法26問・敬語の基本を含む）・月影の祭壇（古文20問） |
 | 3 | 検証のしくみ（正解が1つか・選択肢の重複などの自動チェック）＋漢字を中1の392字から50字ずつ差し替え | **自動チェックは完了（2026-11-21、`npm run verify`・Actionsで毎回実行）**。漢字の差し替えは本人判断で後回し（教科書の「一年生で学習した漢字」一覧の写真かPDFをもらってから） |
@@ -129,7 +129,7 @@
 |---|---|
 | `00_header.jsx` | import 2行＋冒頭コメント。**import を書いてよいのはここだけ** |
 | `10_theme.jsx` | `C`（配色パレット）/ `clay()` |
-| `11_firebase.jsx` | セーブ一式（`FIREBASE_CONFIG` 〜 `saveUserData`）＋ログイン（`initAuth` / `setAuthUser` / `loadSaveData`）。**2026-11〜 C方式**：匿名ログインで始め、あとでメール＋パスワードをひも付ける。セーブ先は `users/{uid}`。ログインできないとき（Firebase側で未有効など）は従来どおり `users/{端末ID}`。初回は端末ID側のセーブを uid 側へ自動コピー（端末ID側は消さない）。devパネルの引き継ぎで番号を切り替えると `rino_force_migrate` が立ち、次回起動時にその端末IDのセーブで uid 側を上書きする |
+| `11_firebase.jsx` | セーブ一式（`FIREBASE_CONFIG` 〜 `saveUserData`）＋ログイン（`initAuth` / `setAuthUser` / `loadSaveData`）。**2026-11〜 C方式**：匿名ログインで始め、あとでメール＋パスワードをひも付ける。セーブ先は `users/{uid}`。ログインできないとき（Firebase側で未有効など）は従来どおり `users/{端末ID}`。初回は端末ID側のセーブを uid 側へ自動コピー（端末ID側は消さない）。devパネルの引き継ぎで番号を切り替えると `rino_force_migrate` が立ち、次回起動時にその端末IDのセーブで uid 側を上書きする。**2026-11-21〜**：`resetPassword`（再設定メール）/ `changeEmail`（今のパスワードで本人確認→新しいアドレスに確認メール `verifyBeforeUpdateEmail`。リンクを押すと切り替わる）。メール登録済みのログインは端末の `rino_login_email` に覚え、起動時にトークンを確かめる（`user.reload`＋`getIdToken(true)`）。**切れていて `rino_login_email` があれば、匿名を作らず `fb.needLogin` を立てて「ログインし直し」画面（`70` の `ReLogin`）へ**（匿名を作ると空のセーブで始まり、本物のセーブが見えなくなるため）。通信エラーのときはログアウトしない |
 | `12_keyframes.jsx` | `Keyframes`（CSSアニメ定義） |
 | `13_assets.jsx` | `ASSET_BASE` / `assetUrl` / `ASSETS` / `LOTTIE` |
 | `20_lottie_view.jsx` | `LottieView` |
@@ -163,7 +163,7 @@
 | `45_dev_panel.jsx` | `DEV_PANEL_ENABLED` / `PROGRESS`（＝ロードマップと同じ内容のチェックリスト。`future: true` は件数に数えない）/ `AccountBox`（親用：メール登録・ログイン）/ `DeviceTransfer`（セーブの引き継ぎ：端末IDの表示・コピー・切り替え）/ `DevPanel`。⚠ セーブ本体はFirestoreの `users/{uid}`（2026-11-20〜。それ以前は `users/{端末ID}`）。ログイン状態は端末にだけあるので、**ホーム画面のアイコンを消すと匿名のままのセーブには戻れない**（2026-10-31に端末ID方式で実際に発生）。メール登録済みなら「登録済みのメールでログイン」で戻れる。ルールのロック後は「セーブの引き継ぎ」は効かない（端末ID側が読めないため）。`DEV_PANEL_ENABLED` を false にするとこの機能も消えるので、そのときは別の場所へ移すこと |
 | `50_hud.jsx` | `HUD` / `Pill` / `Btn` |
 | `60_app.jsx` | `Rinogical`（メイン。画面の出し分け・セーブ処理）**`export default` はここ1行だけ**（ビルド時に自動で外れる） |
-| `70_screen_start.jsx` | `Loading` / `CHARACTERS` / `CharacterSelect` / `NameInput` / `Tutorial` |
+| `70_screen_start.jsx` | `Loading` / `CHARACTERS` / `CharacterSelect` / `NameInput` / `ReLogin`（ログインし直し：メール＋パスワード・パスワードを忘れたとき）/ `Tutorial` |
 | `71_teacher_icon.jsx` | `TeacherIcon` |
 | `72_screen_home.jsx` | `SubjectHome` / `Home` |
 | `73_screen_battle.jsx` | `MarkedText`（問題文の対象語を強調）/ `RECENT_PROBLEMS`（同じ問題が続けて出ないための記録。教科・単元ごとに直近4問）/ `Battle`（`nextProblem` が引き直し、`makeProblem` が1問つくる）/ `ExplainPanel` |

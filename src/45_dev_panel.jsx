@@ -24,7 +24,7 @@ const PROGRESS = [
     { t: "匿名ログイン＋セーブの自動引っ越し", done: true },
     { t: "メール＋パスワードの登録・ログイン", done: true },
     { t: "Firestoreのルールをロック（本人だけ読み書き）", done: true },
-    { t: "メールアドレス変更・パスワード再設定", done: false },
+    { t: "メールアドレス変更・パスワード再設定（＋ログインが切れたときの「ログインし直し」画面）", done: true },
     { t: "娘のアカウント登録（娘のiPhoneで）", done: false },
   ]},
   { phase: "フェーズ1：国語の構造整理＋語彙", items: [
@@ -177,6 +177,30 @@ function AccountBox() {
     try { await loginEmail(email, pw); location.reload(); }
     catch (e) { setMsg(authErrorText(e)); setArmed(false); setBusy(false); }
   };
+  // パスワードを忘れたとき：登録済みならそのメールへ、未登録の端末なら入力したメールへ再設定メールを送る
+  const doReset = async () => {
+    const to = linked ? fb.email : email.trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to || "")) { setMsg("上の欄に、登録したメールアドレスを入れてください"); return; }
+    setBusy(true); setMsg("");
+    try { await resetPassword(to); setMsg(to + " にパスワード再設定のメールを送りました。メールのリンクから新しいパスワードを決めてください（届かないときは迷惑メールも確認）"); }
+    catch (e) { setMsg(authErrorText(e)); }
+    setBusy(false);
+  };
+  // メールアドレスの変更（登録済みのときだけ）。新しいアドレスに届く確認メールのリンクを押すと切り替わる
+  const [newEmail, setNewEmail] = useState("");
+  const [curPw, setCurPw] = useState("");
+  const doChangeEmail = async () => {
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(newEmail.trim())) { setMsg("新しいメールアドレスの形がちがいます"); return; }
+    if (newEmail.trim() === fb.email) { setMsg("今と同じメールアドレスです"); return; }
+    if (!curPw) { setMsg(authErrorText({ code: "auth/missing-password" })); return; }
+    setBusy(true); setMsg("");
+    try {
+      await changeEmail(curPw, newEmail);
+      setMsg(newEmail.trim() + " に確認メールを送りました。そのメールのリンクを押すと切り替わります（押すまでは今のアドレスのまま）。切り替わったあと、次にアプリを開いたとき「ログインし直してね」と出たら、新しいアドレスとパスワードで入ってください。セーブはそのまま残ります");
+      setCurPw(""); setNewEmail("");
+    } catch (e) { setMsg(authErrorText(e)); }
+    setBusy(false);
+  };
   const box = { background: "#1b1828", border: "1px solid #34304a", borderRadius: 12, padding: 12, marginBottom: 14 };
   const btn = { border: "none", borderRadius: 8, padding: "7px 12px", fontWeight: 800, cursor: "pointer", fontSize: 12, marginRight: 8, marginBottom: 6 };
   const inp = { width: "100%", boxSizing: "border-box", background: "#0e0c16", color: "#cfc7e6", border: "1px solid #34304a",
@@ -188,6 +212,16 @@ function AccountBox() {
       <div style={{ fontSize: 11, color: "#8a83a8", marginBottom: 8, lineHeight: 1.5 }}>
         メールとパスワードを登録しておくと、アイコンを消しても・別のiPhoneでも「ログイン」で同じセーブに戻れます。
       </div>
+      {linked && (
+        <div style={{ borderBottom: "1px solid #34304a", paddingBottom: 10, marginBottom: 10 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: "#cfc7e6", marginBottom: 6 }}>メールアドレスを変える</div>
+          <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="新しいメールアドレス"
+            autoCapitalize="off" autoCorrect="off" spellCheck={false} style={inp} />
+          <input type="password" value={curPw} onChange={e => setCurPw(e.target.value)} placeholder="今のパスワード（本人確認）" style={inp} />
+          <button disabled={busy} onClick={doChangeEmail} style={{ ...btn, background: "#8be9c0", color: "#12101c" }}>確認メールを送る</button>
+          <button disabled={busy} onClick={doReset} style={{ ...btn, background: "#2a2740", color: "#cfc7e6" }}>パスワードを再設定（メールで）</button>
+        </div>
+      )}
       <input type="email" value={email} onChange={e => { setEmail(e.target.value); setArmed(false); }} placeholder="メールアドレス"
         autoCapitalize="off" autoCorrect="off" spellCheck={false} style={inp} />
       <input type="password" value={pw} onChange={e => { setPw(e.target.value); setArmed(false); }} placeholder="パスワード（6文字以上）" style={inp} />
@@ -197,6 +231,9 @@ function AccountBox() {
       <button disabled={busy} onClick={doLogin} style={{ ...btn, background: armed ? "#e8a33a" : "#2a2740", color: armed ? "#12101c" : "#cfc7e6" }}>
         {armed ? "もう一度押して確定" : "登録済みのメールでログイン"}
       </button>
+      {!linked && (
+        <button disabled={busy} onClick={doReset} style={{ ...btn, background: "none", color: "#8a83a8", textDecoration: "underline", padding: "7px 4px" }}>パスワードを忘れたとき</button>
+      )}
       {msg && <div style={{ fontSize: 11, color: "#ffd56b", marginTop: 4, lineHeight: 1.5 }}>{msg}</div>}
     </div>
   );
