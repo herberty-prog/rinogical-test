@@ -183,9 +183,29 @@ async function initAuth(app) {
     fb.authMod = am;
     fb.auth = am.getAuth(app);
     // 前回のログイン状態の復元を待つ（ここで待たないと毎回新しい匿名ユーザーができてしまう）
+    try { fb.auth.languageCode = "ja"; } catch (e) {} // パスワード再設定などのメールを日本語で送る
     let user = await new Promise(resolve => {
       const off = am.onAuthStateChanged(fb.auth, u => { off(); resolve(u); });
     });
+    // メールアドレスを変えた・パスワードを変えたなどでログインが切れていないか確かめる。
+    // 切れていたらログアウト扱い。電波が悪いだけのときはそのまま続ける（セーブは次回に）
+    if (user && !user.isAnonymous) {
+      try { await user.reload(); await user.getIdToken(true); }
+      catch (e) {
+        const c = (e && e.code) || "";
+        if (["auth/user-token-expired", "auth/user-disabled", "auth/user-not-found", "auth/invalid-user-token"].includes(c)) {
+          try { await am.signOut(fb.auth); } catch (e2) {}
+          user = null;
+        }
+      }
+    }
+    // メール登録済みのセーブがあった端末で、ログインが切れていたら：新しい匿名のセーブを作らず「ログインし直し」画面へ
+    // （ここで匿名を作ると、空のセーブで始まってしまい、本物のセーブが見えなくなるため）
+    if (!user && rememberedEmail()) {
+      fb.uid = null; fb.needLogin = rememberedEmail();
+      console.warn("[Rinogical] ログインが切れています。ログインし直してください");
+      return;
+    }
     if (!user) user = (await am.signInAnonymously(fb.auth)).user;
     setAuthUser(user);
     console.info("[Rinogical] ログインOK:", user.isAnonymous ? "匿名" : user.email);
@@ -199,7 +219,10 @@ function setAuthUser(user) {
   fb.uid = user ? user.uid : null;
   fb.isAnonymous = user ? user.isAnonymous : true;
   fb.email = user ? (user.email || null) : null;
+  // メール登録済みのログインなら、この端末に「メールで使っている」ことを覚えておく（ログインが切れたとき用）
+  if (user && !user.isAnonymous && user.email) { try { localStorage.setItem("rino_login_email", user.email); } catch (e) {} }
 }
+function rememberedEmail() { try { return localStorage.getItem("rino_login_email") || ""; } catch (e) { return ""; } }
 
 /* 起動時に呼ぶ：どこに保存するか（key）と、読み込んだセーブ（data）を返す */
 async function loadSaveData() {
@@ -240,6 +263,10 @@ function authErrorText(e) {
     "auth/user-not-found": "このメールは登録されていません",
     "auth/too-many-requests": "試した回数が多すぎます。しばらく待ってからもう一度",
     "auth/network-request-failed": "通信できませんでした。電波のよい所でもう一度",
+    "auth/requires-recent-login": "安全のため、今のパスワードを入れてもう一度",
+    "auth/missing-password": "今のパスワードを入れてください",
+    "auth/missing-email": "メールアドレスを入れてください",
+    "auth/operation-not-supported-in-this-environment": "この画面からは変更できませんでした",
   };
   return m[c] || ("うまくいきませんでした（" + (c || (e && e.message) || "不明") + "）");
 }
@@ -250,6 +277,23 @@ async function registerEmail(email, password) {
   const res = await am.linkWithCredential(fb.auth.currentUser, cred);
   setAuthUser(res.user);
   return res.user;
+}
+/* パスワードを忘れたとき：再設定用のメールを送る（ログインしていなくても使える）。
+   届いたメールのリンクから新しいパスワードを決める。セーブ（uid）はそのまま */
+async function resetPassword(email) {
+  if (!fb.auth) throw { code: "auth/admin-restricted-operation" };
+  await fb.authMod.sendPasswordResetEmail(fb.auth, email.trim());
+}
+/* メールアドレスの変更：今のパスワードで本人確認してから、新しいアドレスに確認メールを送る。
+   確認メールのリンクを押した時点で切り替わる（押すまでは今のアドレスのまま）。セーブ（uid）はそのまま。
+   切り替わるとこの端末のログインが切れることがあるので、次の起動で「ログインし直し」画面が出たら新しいアドレスで入る */
+async function changeEmail(currentPassword, newEmail) {
+  const u = fb.auth && fb.auth.currentUser;
+  if (!u || u.isAnonymous || !u.email) throw { code: "auth/admin-restricted-operation" };
+  const am = fb.authMod;
+  await am.reauthenticateWithCredential(u, am.EmailAuthProvider.credential(u.email, currentPassword));
+  await am.verifyBeforeUpdateEmail(u, newEmail.trim());
+  try { localStorage.setItem("rino_login_email", newEmail.trim()); } catch (e) {} // 次にログインし直すときの入力欄に出す
 }
 /* 登録済みのメールでログイン（別の端末・アイコンを消したあと用）。セーブが切り替わるので呼んだ側で再起動する */
 async function loginEmail(email, password) {
@@ -3464,6 +3508,14 @@ const STR = {
     nameSub: "この呼び方で、ゲーム中も親画面でも呼ぶよ",
     nickLabel: "呼ばれ方（ニックネーム）",
     nickPlaceholder: "例：けいくん",
+    // ログインし直し画面（メール変更などでログインが切れたとき）
+    reloginTitle: "ログインし直してね",
+    reloginSub: "メールアドレスやパスワードを変えたなどで、ログインが切れました。登録したメールとパスワードで入ると、今までのセーブにもどれます。",
+    reloginEmail: "メールアドレス",
+    reloginPw: "パスワード",
+    reloginBtn: "ログイン",
+    reloginForgot: "パスワードを忘れたとき",
+    reloginSent: "パスワード再設定のメールを送りました。メールのリンクから新しいパスワードを決めて、ここでログインしてね（届かないときは迷惑メールも見てね）",
     next: "すすむ",
     tutHello: "ようこそ、",
     tutHelloEnd: "。",
@@ -3592,7 +3644,7 @@ const PROGRESS = [
     { t: "匿名ログイン＋セーブの自動引っ越し", done: true },
     { t: "メール＋パスワードの登録・ログイン", done: true },
     { t: "Firestoreのルールをロック（本人だけ読み書き）", done: true },
-    { t: "メールアドレス変更・パスワード再設定", done: false },
+    { t: "メールアドレス変更・パスワード再設定（＋ログインが切れたときの「ログインし直し」画面）", done: true },
     { t: "娘のアカウント登録（娘のiPhoneで）", done: false },
   ]},
   { phase: "フェーズ1：国語の構造整理＋語彙", items: [
@@ -3745,6 +3797,30 @@ function AccountBox() {
     try { await loginEmail(email, pw); location.reload(); }
     catch (e) { setMsg(authErrorText(e)); setArmed(false); setBusy(false); }
   };
+  // パスワードを忘れたとき：登録済みならそのメールへ、未登録の端末なら入力したメールへ再設定メールを送る
+  const doReset = async () => {
+    const to = linked ? fb.email : email.trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to || "")) { setMsg("上の欄に、登録したメールアドレスを入れてください"); return; }
+    setBusy(true); setMsg("");
+    try { await resetPassword(to); setMsg(to + " にパスワード再設定のメールを送りました。メールのリンクから新しいパスワードを決めてください（届かないときは迷惑メールも確認）"); }
+    catch (e) { setMsg(authErrorText(e)); }
+    setBusy(false);
+  };
+  // メールアドレスの変更（登録済みのときだけ）。新しいアドレスに届く確認メールのリンクを押すと切り替わる
+  const [newEmail, setNewEmail] = useState("");
+  const [curPw, setCurPw] = useState("");
+  const doChangeEmail = async () => {
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(newEmail.trim())) { setMsg("新しいメールアドレスの形がちがいます"); return; }
+    if (newEmail.trim() === fb.email) { setMsg("今と同じメールアドレスです"); return; }
+    if (!curPw) { setMsg(authErrorText({ code: "auth/missing-password" })); return; }
+    setBusy(true); setMsg("");
+    try {
+      await changeEmail(curPw, newEmail);
+      setMsg(newEmail.trim() + " に確認メールを送りました。そのメールのリンクを押すと切り替わります（押すまでは今のアドレスのまま）。切り替わったあと、次にアプリを開いたとき「ログインし直してね」と出たら、新しいアドレスとパスワードで入ってください。セーブはそのまま残ります");
+      setCurPw(""); setNewEmail("");
+    } catch (e) { setMsg(authErrorText(e)); }
+    setBusy(false);
+  };
   const box = { background: "#1b1828", border: "1px solid #34304a", borderRadius: 12, padding: 12, marginBottom: 14 };
   const btn = { border: "none", borderRadius: 8, padding: "7px 12px", fontWeight: 800, cursor: "pointer", fontSize: 12, marginRight: 8, marginBottom: 6 };
   const inp = { width: "100%", boxSizing: "border-box", background: "#0e0c16", color: "#cfc7e6", border: "1px solid #34304a",
@@ -3756,6 +3832,16 @@ function AccountBox() {
       <div style={{ fontSize: 11, color: "#8a83a8", marginBottom: 8, lineHeight: 1.5 }}>
         メールとパスワードを登録しておくと、アイコンを消しても・別のiPhoneでも「ログイン」で同じセーブに戻れます。
       </div>
+      {linked && (
+        <div style={{ borderBottom: "1px solid #34304a", paddingBottom: 10, marginBottom: 10 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: "#cfc7e6", marginBottom: 6 }}>メールアドレスを変える</div>
+          <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="新しいメールアドレス"
+            autoCapitalize="off" autoCorrect="off" spellCheck={false} style={inp} />
+          <input type="password" value={curPw} onChange={e => setCurPw(e.target.value)} placeholder="今のパスワード（本人確認）" style={inp} />
+          <button disabled={busy} onClick={doChangeEmail} style={{ ...btn, background: "#8be9c0", color: "#12101c" }}>確認メールを送る</button>
+          <button disabled={busy} onClick={doReset} style={{ ...btn, background: "#2a2740", color: "#cfc7e6" }}>パスワードを再設定（メールで）</button>
+        </div>
+      )}
       <input type="email" value={email} onChange={e => { setEmail(e.target.value); setArmed(false); }} placeholder="メールアドレス"
         autoCapitalize="off" autoCorrect="off" spellCheck={false} style={inp} />
       <input type="password" value={pw} onChange={e => { setPw(e.target.value); setArmed(false); }} placeholder="パスワード（6文字以上）" style={inp} />
@@ -3765,6 +3851,9 @@ function AccountBox() {
       <button disabled={busy} onClick={doLogin} style={{ ...btn, background: armed ? "#e8a33a" : "#2a2740", color: armed ? "#12101c" : "#cfc7e6" }}>
         {armed ? "もう一度押して確定" : "登録済みのメールでログイン"}
       </button>
+      {!linked && (
+        <button disabled={busy} onClick={doReset} style={{ ...btn, background: "none", color: "#8a83a8", textDecoration: "underline", padding: "7px 4px" }}>パスワードを忘れたとき</button>
+      )}
       {msg && <div style={{ fontSize: 11, color: "#ffd56b", marginTop: 4, lineHeight: 1.5 }}>{msg}</div>}
     </div>
   );
@@ -3870,6 +3959,8 @@ function Rinogical() {
     (async () => {
       const sleep = new Promise(r => setTimeout(r, 1300)); // ローディング演出の最低表示時間
       await initFirebase();
+      // メール登録済みの端末でログインが切れていたら、セーブを読まずに「ログインし直し」画面へ（保存も始めない）
+      if (fb.needLogin) { await sleep; if (alive) setScreen("relogin"); return; }
       const { key, data } = await loadSaveData(); // ログインできればuid、できなければ端末IDに保存
       deviceIdRef.current = key;
       await sleep;
@@ -3947,6 +4038,7 @@ function Rinogical() {
 
       <div style={{ maxWidth: 460, margin: "0 auto", position: "relative" }}>
         {screen === "loading" && <Loading tip={tip} />}
+        {screen === "relogin" && <ReLogin email0={fb.needLogin} />}
         {screen === "character" && <CharacterSelect onPick={(c) => { setCharacter(c); setScreen("name"); }} />}
         {screen === "name" && (
           <NameInput accent={character?.accent} imgSrc={assetUrl(character?.img)}
@@ -4029,6 +4121,46 @@ function NameInput({ accent, imgSrc, nickname, setNickname, onNext }) {
       <Btn full bg={accent} onClick={onNext} disabled={!nickname.trim()}>
         {t("next")} <ArrowRight size={18} style={{ verticalAlign: "-3px" }} />
       </Btn>
+    </div>
+  );
+}
+
+/* ---------- ログインし直し（11_firebase.jsx の fb.needLogin のとき） ----------
+   メール登録済みのセーブがあった端末でログインが切れたときに出す。ここでは新しいセーブを作らない
+   （作ると空のセーブで始まり、本物のセーブが見えなくなるため）。ログインできたら再起動する */
+function ReLogin({ email0 }) {
+  const [email, setEmail] = useState(email0 || "");
+  const [pw, setPw] = useState("");
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+  const field = { ...clay(C.bg1, false), border: "none", outline: "none", color: C.ink, fontSize: 16,
+    padding: "13px 16px", width: "100%", fontWeight: 700, marginTop: 6, marginBottom: 12, boxSizing: "border-box" };
+  const doLogin = async () => {
+    setBusy(true); setMsg("");
+    try { await loginEmail(email, pw); location.reload(); }
+    catch (e) { setMsg(authErrorText(e)); setBusy(false); }
+  };
+  const doReset = async () => {
+    if (!email.trim()) { setMsg(authErrorText({ code: "auth/missing-email" })); return; }
+    setBusy(true); setMsg("");
+    try { await resetPassword(email); setMsg(t("reloginSent")); }
+    catch (e) { setMsg(authErrorText(e)); }
+    setBusy(false);
+  };
+  return (
+    <div style={{ textAlign: "center", animation: "rino-pop .4s ease" }}>
+      <h2 style={{ fontSize: 22, fontWeight: 900, margin: "8px 0 6px" }}>{t("reloginTitle")}</h2>
+      <p style={{ color: C.inkDim, fontSize: 13, marginBottom: 18, lineHeight: 1.6 }}>{t("reloginSub")}</p>
+      <div style={{ textAlign: "left" }}>
+        <label style={{ fontWeight: 800, color: C.inkDim, fontSize: 14 }}>{t("reloginEmail")}</label>
+        <input style={field} type="email" value={email} onChange={e => setEmail(e.target.value)} autoCapitalize="off" autoCorrect="off" spellCheck={false} />
+        <label style={{ fontWeight: 800, color: C.inkDim, fontSize: 14 }}>{t("reloginPw")}</label>
+        <input style={field} type="password" value={pw} onChange={e => setPw(e.target.value)} />
+      </div>
+      <Btn full bg={C.aqua} onClick={doLogin} disabled={busy || !email.trim() || pw.length < 6}>{t("reloginBtn")}</Btn>
+      <button onClick={doReset} disabled={busy} style={{ background: "none", border: "none", color: C.inkDim, fontSize: 13, fontWeight: 700,
+        textDecoration: "underline", marginTop: 14, cursor: "pointer", fontFamily: "inherit" }}>{t("reloginForgot")}</button>
+      {msg && <div style={{ fontSize: 13, color: C.gold, marginTop: 10, lineHeight: 1.6 }}>{msg}</div>}
     </div>
   );
 }
