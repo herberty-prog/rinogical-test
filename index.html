@@ -959,21 +959,12 @@ const EXPLAIN_SYSTEM =
   "正負の数の単元。答えそのものより『考え方のステップ』を伝える。絵文字は1〜2個までOK。" +
   "毎回みじかく。長く書きすぎない。";
 
-async function genOyou(level, sysOverride) {
-  const sysDefault =
-    "あなたは中学1年生（東京書籍・正負の数）の数学問題を作る出題者です。" +
-    "答えが必ず1つの整数になる、少し考える応用問題を1問だけ作ってください。" +
-    "出力はJSONのみ。前置き・マークダウン・コードフェンス禁止。" +
-    'フォーマット: {"q":"問題文（短く）","a":整数,"choices":[4つの整数。aを必ず含む]}';
-  const sys = sysOverride || sysDefault;
-  const txt = await callClaude([{ role: "user", content: `レベル${level}相当の応用問題を1問。` }], sys);
-  const clean = txt.replace(/```json|```/g, "").trim();
-  const obj = JSON.parse(clean);
-  if (typeof obj.a !== "number" || !obj.q) throw new Error("bad");
-  // AIの選択肢から、正解1つ＋重ならない3つを取る（以前は5つ以上返ってきたとき正解が切り落とされることがあった）
-  const others = Array.isArray(obj.choices) ? [...new Set(obj.choices.filter(n => typeof n === "number" && n !== obj.a))] : [];
-  const choices = others.length >= 3 ? shuffle([obj.a].concat(shuffle(others).slice(0, 3))) : makeChoices(obj.a);
-  return { q: obj.q, a: obj.a, choices, kind: "応用" };
+/* 正負の数・文字式・方程式の「応用」（Lv5以降、AIが文章題をつくる）。
+   2026-11-21〜：AIには問題文と式だけを書かせ、答えはアプリが計算する（37_math_oyou_ai.jsx の genOyouV）。
+   以前はAIの答えをそのまま使っていたが、AIの計算まちがいで「正しく答えたのに不正解」になるおそれがあったため。
+   sys＝指示文、allowed＝使ってよい式の種類（正負の数は expr、文字式は subst、方程式は eq） */
+async function genOyou(level, sys = OYOU_SEIFU_SYS, allowed = ["expr"]) {
+  return genOyouV(level, sys, allowed);
 }
 
 /* ローカル解説フォールバック */
@@ -2782,12 +2773,7 @@ function genStd_moji(level) {
   return { q: `${p} = ${pv}, ${r} = ${rv} のとき　${term(k1, p, true)}${term(k2, r, false)} の値`, a: k1 * pv + k2 * rv, kind: "標準" };
 }
 
-/* 応用：AIに代入の文章題を作らせる（答えは整数） */
-const MOJI_OYOU_SYS =
-  "あなたは中学1年生（東京書籍・文字式／式の値）の数学問題を作る出題者です。" +
-  "x や a に数を代入して値を求める、少し考える文章題を1問だけ作ってください。" +
-  "答えが必ず1つの整数になること。出力はJSONのみ。前置き・マークダウン・コードフェンス禁止。" +
-  'フォーマット: {"q":"問題文（短く）","a":整数,"choices":[4つの整数。aを必ず含む]}';
+/* AIの応用問題の指示は 37_math_oyou_ai.jsx の OYOU_MOJI_SYS（答えはアプリが計算する） */
 
 /* AI解説（文字式・代入用）。先生は数学共通の「マギ先生」 */
 const EXPLAIN_MOJI =
@@ -3146,12 +3132,7 @@ function genStd_houtei(level) {
   return { q: `${n}${term(-k, "x", false)} = ${c} を解くと、x`, a: sol, kind: "標準" };
 }
 
-/* 応用：AIに方程式の文章題を作らせる（答えは整数） */
-const HOUTEI_OYOU_SYS =
-  "あなたは中学1年生（東京書籍・1次方程式）の数学問題を作る出題者です。" +
-  "文章から1次方程式を立てて解く文章題を1問だけ作ってください。答え（求める数）が必ず1つの整数になること。" +
-  "出力はJSONのみ。前置き・マークダウン・コードフェンス禁止。" +
-  'フォーマット: {"q":"問題文（短く）","a":整数,"choices":[4つの整数。aを必ず含む]}';
+/* AIの応用問題の指示は 37_math_oyou_ai.jsx の OYOU_HOUTEI_SYS（答えはアプリが計算する） */
 
 /* AI解説（方程式用）。先生は数学共通の「マギ先生」 */
 const EXPLAIN_HOUTEI =
@@ -3283,7 +3264,8 @@ const EXPLAIN_KUKAN =
    ・v の数が問題文の中にちゃんと書かれているかも確かめる（文と材料が食いちがう問題をはじく）。
    ・答えが整数（またはπの整数倍、小数第2位まで）にならない材料、範囲外の数はすべて不合格にして、
      バトル側でふつうの標準問題に切りかえる（throw すると genFromPool にもどる）。
-   ・tools/verify.mjs の expectFromV と同じ計算。どちらかを変えたらもう片方も合わせる。 */
+   ・tools/verify.mjs の expectFromV と同じ計算。どちらかを変えたらもう片方も合わせる。
+   ・正負の数・文字式・方程式の応用も、下の mathEval / solveLinear で同じ考え方（AIは式だけ、答えはアプリ）にしてある。 */
 const OYOU_V = {
   // 比例・反比例（文章題：針金の長さと重さ、水そうに水を入れる時間、歯車、作業の人数と日数 など）
   hirei_y2: { keys: ["x1", "y1", "x2"], ans: v => v.y1 / v.x1 * v.x2, form: "int" },
@@ -3315,6 +3297,7 @@ const OYOU_V = {
 
 /* v から答えを計算して、合格なら { a, form } を返す。だめなら null */
 function oyouAnswer(v, allowed) {
+  if (v && OYOU_FORMULA[v.t]) return allowed.includes(v.t) ? oyouFormulaAnswer(v) : null;
   const spec = v && OYOU_V[v.t];
   if (!spec || !allowed.includes(v.t)) return null;
   const nums = spec.keys.map(k => v[k]);
@@ -3332,9 +3315,13 @@ function oyouAnswer(v, allowed) {
 
 /* 問題文に v の数がすべて書かれているか（「12」が「120」の一部として見つかるのは不可） */
 function oyouNumbersInText(q, v) {
+  const found = (String(q).normalize("NFKC").match(/\d+(\.\d+)?/g) || []).map(Number);
+  if (OYOU_FORMULA[v.t]) { // 式の中の数（と代入する数）が、すべて問題文に書かれているか。符号は文章で書かれることがあるので絶対値で見る
+    const nums = formulaNumbers(v.t === "eq" ? v.eq : v.expr).concat(v.t === "subst" ? Object.values(v.vars || {}).map(Math.abs) : []);
+    return nums.every(n => found.includes(n));
+  }
   const spec = OYOU_V[v.t];
   const nums = spec.keys.map(k => v[k]).concat(spec.list ? v[spec.list] : []);
-  const found = (String(q).normalize("NFKC").match(/\d+(\.\d+)?/g) || []).map(Number);
   // deg_from_arc の k は「6π」のように π つきで書かれる。数字の部分だけで見る
   return nums.every(n => found.includes(n));
 }
@@ -3356,10 +3343,117 @@ async function genOyouV(level, sys, allowed) {
     const ch = choices4(r.a, [Math.round((1 - r.a) * 100) / 100, Math.round((r.a + 0.1) * 100) / 100, Math.round(Math.max(0.01, r.a - 0.1) * 100) / 100, Math.round((r.a + 0.2) * 100) / 100].filter(x => x > 0 && x < 1));
     return { q, a: r.a, type: "number", ui: "choice", choices: ch, kind: "応用", text: true, v };
   }
+  // 正負の数・文字式・方程式：答えが負の数のこともあるので、ふつうの数学のダミー（符号ちがいなど）を使う
+  if (r.form === "intneg") return { q, a: r.a, type: "number", ui: "choice", choices: makeChoices(r.a), kind: "応用", text: true, v };
   // 文章題なので、ダミーも正の数（「−105g」のような答えはありえないので入れない）
   const step = Math.max(1, Math.round(r.a / 10));
   const ch = choices4(r.a, [r.a + step, r.a - step, r.a * 2, Math.round(r.a / 2), r.a + 2 * step, r.a - 2 * step].filter(x => x > 0 && x !== r.a));
   return { q, a: r.a, type: "number", ui: "choice", choices: ch, kind: "応用", text: true, v };
+}
+
+/* ---------- 正負の数・文字式・方程式の応用（2026-11-21〜）----------
+   AIには式（expr / eq）と、代入する数（vars）を書かせ、アプリが式を計算して答えを出す。
+   expr：「(-3)×4+5」のような計算式 → 答え＝その値（整数）
+   subst：expr に文字（x, a など）をふくむ式、vars に代入する数 → 答え＝式の値（整数）
+   eq：「3x+5=20」のような1次方程式（文字は1つ）→ 答え＝解（整数）。1次でない式・解が1つに決まらない式ははじく */
+const OYOU_FORMULA = { expr: true, subst: true, eq: true };
+
+/* 分数のまま正確に計算する（0.1+0.2 のような誤差を出さない）。{ n: 分子, d: 分母 } */
+const frGcd = (a, b) => { a = Math.abs(a); b = Math.abs(b); while (b) [a, b] = [b, a % b]; return a || 1; };
+function fr(n, d = 1) {
+  if (d === 0) throw new Error("÷0");
+  if (d < 0) { n = -n; d = -d; }
+  const g = frGcd(n, d); n /= g; d /= g;
+  if (Math.abs(n) > 1e12 || d > 1e9) throw new Error("大きすぎる");
+  return { n, d };
+}
+const frAdd = (a, b) => fr(a.n * b.d + b.n * a.d, a.d * b.d);
+const frSub = (a, b) => fr(a.n * b.d - b.n * a.d, a.d * b.d);
+const frMul = (a, b) => fr(a.n * b.n, a.d * b.d);
+const frDiv = (a, b) => fr(a.n * b.d, a.d * b.n);
+function frPow(a, k) { if (!Number.isInteger(k) || k < 0 || k > 6) throw new Error("指数"); let r = fr(1); for (let i = 0; i < k; i++) r = frMul(r, a); return r; }
+
+/* 式を字句に分ける。× ÷ − （）全角数字なども読む。使える文字は a〜z の1文字ずつ */
+function mathTokens(src) {
+  // ² ⁴ などの右上の小さな数字は NFKC でふつうの数字に変わってしまうので、先に ^2 ^4 に直す
+  const SUP = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+  const s = String(src).replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]+/g, m => "^" + [...m].map(c => SUP.indexOf(c)).join("")).normalize("NFKC").replace(/[−‐‑–—ー]/g, "-").replace(/×|✕/g, "*").replace(/÷/g, "/").replace(/\s+/g, "");
+  const out = []; let i = 0;
+  while (i < s.length) {
+    const c = s[i];
+    if (/[0-9.]/.test(c)) { let j = i; while (j < s.length && /[0-9.]/.test(s[j])) j++; const t = s.slice(i, j); if (!/^\d+(\.\d+)?$/.test(t)) throw new Error("数"); out.push({ k: "num", v: t }); i = j; continue; }
+    if (/[a-z]/.test(c)) { out.push({ k: "var", v: c }); i++; continue; }
+    if ("+-*/^()=".includes(c)) { out.push({ k: c }); i++; continue; }
+    throw new Error("使えない文字: " + c);
+  }
+  return out;
+}
+const decToFr = (t) => { const [a, b = ""] = t.split("."); return fr(Number(a + b), 10 ** b.length); };
+
+/* 式を計算する。vars＝文字の値（{x: 3}）。文字どうし・数と文字のあいだの × は省略してよい（3x, 2ab, 2(x+1)）。
+   省略した × は ÷ より先に計算する（6÷2x ＝ 6÷(2x)）。累乗は符号より先（-3² ＝ -(3²)） */
+function mathEval(src, vars = {}) {
+  const tk = mathTokens(src); let p = 0;
+  const peek = () => tk[p] && tk[p].k;
+  const atomStart = () => ["num", "var", "("].includes(peek());
+  function atom() {
+    const t = tk[p++];
+    if (!t) throw new Error("式が途中で終わっている");
+    if (t.k === "num") return decToFr(t.v);
+    if (t.k === "var") { if (!(t.v in vars)) throw new Error("値のない文字: " + t.v); return fr(vars[t.v]); }
+    if (t.k === "(") { const v = sum(); if (peek() !== ")") throw new Error(")"); p++; return v; }
+    throw new Error("記号の位置");
+  }
+  function power() {
+    let b = atom();
+    while (peek() === "^") { p++; const e = unary(); if (e.d !== 1) throw new Error("指数"); b = frPow(b, e.n); }
+    return b;
+  }
+  function unary() { if (peek() === "-") { p++; return frMul(fr(-1), unary()); } if (peek() === "+") { p++; return unary(); } return power(); }
+  function factor() { let v = unary(); while (atomStart()) v = frMul(v, power()); return v; }
+  function term() { let v = factor(); while (peek() === "*" || peek() === "/") { const op = tk[p++].k; const r = factor(); v = op === "*" ? frMul(v, r) : frDiv(v, r); } return v; }
+  function sum() { let v = term(); while (peek() === "+" || peek() === "-") { const op = tk[p++].k; const r = term(); v = op === "+" ? frAdd(v, r) : frSub(v, r); } return v; }
+  const v = sum();
+  if (p !== tk.length) throw new Error("式のあとに余分なもの");
+  return v;
+}
+/* 式の中に書かれている数（絶対値）。問題文に全部あるかを確かめるのに使う */
+function formulaNumbers(src) { return mathTokens(src).filter(t => t.k === "num").map(t => Number(t.v)); }
+const formulaVars = (src) => [...new Set(mathTokens(src).filter(t => t.k === "var").map(t => t.v))];
+
+/* 1次方程式を解く（文字は1つ）。左辺−右辺を f(x) として、f が1次（傾きが一定で0でない）なら解は −f(0)/傾き */
+function solveLinear(eq) {
+  const sides = String(eq).split("=");
+  if (sides.length !== 2 || !sides[0].trim() || !sides[1].trim()) throw new Error("＝が1つの式ではない");
+  const vs = formulaVars(eq);
+  if (vs.length !== 1) throw new Error("文字は1つだけ");
+  const x = vs[0];
+  const f = (n) => frSub(mathEval(sides[0], { [x]: n }), mathEval(sides[1], { [x]: n }));
+  const f0 = f(0), m = frSub(f(1), f0);
+  if (m.n === 0) throw new Error("解が1つに決まらない");
+  for (const k of [2, 3, -5]) { const fk = frSub(f(k), f0), want = frMul(m, fr(k)); if (fk.n !== want.n || fk.d !== want.d) throw new Error("1次方程式ではない"); }
+  return frDiv(frMul(fr(-1), f0), m);
+}
+
+/* expr / subst / eq の答え。整数（負の数も可・絶対値10000まで）だけ合格 */
+function oyouFormulaAnswer(v) {
+  try {
+    let r;
+    if (v.t === "expr") {
+      if (typeof v.expr !== "string" || v.expr.length > 60 || formulaVars(v.expr).length) return null;
+      r = mathEval(v.expr);
+    } else if (v.t === "subst") {
+      if (typeof v.expr !== "string" || v.expr.length > 60 || !v.vars || typeof v.vars !== "object") return null;
+      const names = formulaVars(v.expr);
+      if (!names.length || names.some(n => !Number.isInteger(v.vars[n]) || Math.abs(v.vars[n]) > 10000)) return null;
+      r = mathEval(v.expr, v.vars);
+    } else {
+      if (typeof v.eq !== "string" || v.eq.length > 60) return null;
+      r = solveLinear(v.eq);
+    }
+    if (r.d !== 1 || Math.abs(r.n) > 10000) return null;
+    return { a: r.n, form: "intneg" };
+  } catch (e) { return null; }
 }
 
 /* AIへの指示。共通の決まり＋単元ごとの材料の説明 */
@@ -3392,6 +3486,27 @@ const OYOU_DATA_SYS = oyouSys("データの活用",
   "prob（多数回の実験から確率を求める。材料 k＝回数, n＝試行回数。小数第2位までで割り切れること）。" +
   '例：{"q":"5人の握力は 24、30、27、33、21 kg。平均値は何kg？","v":{"t":"mean","vals":[24,30,27,33,21]}}');
 
+/* 正負の数・文字式・方程式の指示（32 の genOyou から使う）。oyouSys は「数はすべて正の数」なので使わず、別に書く */
+const oyouFormulaSys = (unit, what, fmt, ex) =>
+  `あなたは中学1年生（東京書籍・${unit}）の数学問題を作る出題者です。` +
+  `${what}を1問だけ作ってください。答えは書かないでください（アプリが計算します）。` +
+  "かわりに、答えを計算するための式を v に必ずつけてください。式の中の数は、すべて問題文の中に数字で書くこと。" +
+  "掛け算は ×、割り算は ÷、マイナスは - で書く。問題文は80文字以内。" +
+  "出力はJSONのみ。前置き・マークダウン・コードフェンス禁止。" +
+  `フォーマット: ${fmt}。例：${ex}`;
+const OYOU_SEIFU_SYS = oyouFormulaSys("正負の数",
+  "正負の数を使う、少し考える応用問題（気温の変化、得点の合計、基準との差など）。答えが整数になること",
+  '{"q":"問題文","v":{"t":"expr","expr":"答えを求める式"}}',
+  '{"q":"朝の気温は-3℃で、昼までに8℃上がり、夜までに6℃下がった。夜の気温は何℃？","v":{"t":"expr","expr":"-3+8-6"}}');
+const OYOU_MOJI_SYS = oyouFormulaSys("文字式／式の値",
+  "x や a に数を代入して値を求める、少し考える文章題。答えが整数になること",
+  '{"q":"問題文","v":{"t":"subst","expr":"文字をふくむ式","vars":{"文字":代入する整数}}}',
+  '{"q":"1個x円のパンを3個と、120円のジュースを買う。x=150のときの代金は何円？","v":{"t":"subst","expr":"3x+120","vars":{"x":150}}}');
+const OYOU_HOUTEI_SYS = oyouFormulaSys("1次方程式",
+  "文章から1次方程式を立てて解く文章題。求める数（解）が1つの整数になること",
+  '{"q":"問題文","v":{"t":"eq","eq":"xを使った1次方程式"}}',
+  '{"q":"ある数の3倍に5を加えると20になる。ある数はいくつ？","v":{"t":"eq","eq":"3x+5=20"}}');
+
 /* 共通：標準プールからランダムに1問選ぶ */
 const genFromPool = (pool) => ({ ...pool[rint(0, pool.length - 1)], kind: "標準" });
 /* フェーズ5の単元：用語の表を、うまく作れなかったときの予備プール（4択）にする */
@@ -3403,21 +3518,21 @@ const MATH_UNITS = {
     name: "正負の数", bossName: "ダーク・ナンバー",
     tokens: SUBJECT_META.math.tokens,
     genKihon: genKihon, pool: HYOJUN, genStd: genStd_seifu,
-    genOyou: (lv) => genOyou(lv),
+    genOyou: (lv) => genOyou(lv, OYOU_SEIFU_SYS, ["expr"]),
     explain: EXPLAIN_SYSTEM, localExplain: localExplain,
   },
   moji: {
     name: "文字式", bossName: "シャドウ・レター",
     tokens: ["x", "a", "2x", "y", "-3", "x+1", "5", "-x"],
     genKihon: genKihon_moji, pool: MOJI, genStd: genStd_moji,
-    genOyou: (lv) => genOyou(lv, MOJI_OYOU_SYS),
+    genOyou: (lv) => genOyou(lv, OYOU_MOJI_SYS, ["subst"]),
     explain: EXPLAIN_MOJI, localExplain: localExplainMoji,
   },
   houtei: {
     name: "方程式", bossName: "バランス・ロード",
     tokens: ["x", "2x", "=", "+3", "-5", "x=?", "7", "-x"],
     genKihon: genKihon_houtei, pool: HOUTEI, genStd: genStd_houtei,
-    genOyou: (lv) => genOyou(lv, HOUTEI_OYOU_SYS),
+    genOyou: (lv) => genOyou(lv, OYOU_HOUTEI_SYS, ["eq"]),
     explain: EXPLAIN_HOUTEI, localExplain: localExplainHoutei,
   },
   hirei: {
