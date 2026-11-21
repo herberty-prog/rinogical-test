@@ -10,21 +10,12 @@ const EXPLAIN_SYSTEM =
   "正負の数の単元。答えそのものより『考え方のステップ』を伝える。絵文字は1〜2個までOK。" +
   "毎回みじかく。長く書きすぎない。";
 
-async function genOyou(level, sysOverride) {
-  const sysDefault =
-    "あなたは中学1年生（東京書籍・正負の数）の数学問題を作る出題者です。" +
-    "答えが必ず1つの整数になる、少し考える応用問題を1問だけ作ってください。" +
-    "出力はJSONのみ。前置き・マークダウン・コードフェンス禁止。" +
-    'フォーマット: {"q":"問題文（短く）","a":整数,"choices":[4つの整数。aを必ず含む]}';
-  const sys = sysOverride || sysDefault;
-  const txt = await callClaude([{ role: "user", content: `レベル${level}相当の応用問題を1問。` }], sys);
-  const clean = txt.replace(/```json|```/g, "").trim();
-  const obj = JSON.parse(clean);
-  if (typeof obj.a !== "number" || !obj.q) throw new Error("bad");
-  // AIの選択肢から、正解1つ＋重ならない3つを取る（以前は5つ以上返ってきたとき正解が切り落とされることがあった）
-  const others = Array.isArray(obj.choices) ? [...new Set(obj.choices.filter(n => typeof n === "number" && n !== obj.a))] : [];
-  const choices = others.length >= 3 ? shuffle([obj.a].concat(shuffle(others).slice(0, 3))) : makeChoices(obj.a);
-  return { q: obj.q, a: obj.a, choices, kind: "応用" };
+/* 正負の数・文字式・方程式の「応用」（Lv5以降、AIが文章題をつくる）。
+   2026-11-21〜：AIには問題文と式だけを書かせ、答えはアプリが計算する（37_math_oyou_ai.jsx の genOyouV）。
+   以前はAIの答えをそのまま使っていたが、AIの計算まちがいで「正しく答えたのに不正解」になるおそれがあったため。
+   sys＝指示文、allowed＝使ってよい式の種類（正負の数は expr、文字式は subst、方程式は eq） */
+async function genOyou(level, sys = OYOU_SEIFU_SYS, allowed = ["expr"]) {
+  return genOyouV(level, sys, allowed);
 }
 
 /* ローカル解説フォールバック */

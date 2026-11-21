@@ -290,6 +290,28 @@ const tables = [
 ];
 for (const [name, keyOf] of tables) checkDuplicates(name, get(name), keyOf, fails);
 
+// AIの応用問題で答えを出す式の計算（37_math_oyou_ai.jsx の mathEval / solveLinear）が正しいか、
+// ①決まった式の表 ②正負の数・方程式の問題（答えがわかっている）で確かめる
+{
+  const E = get("mathEval"), S = get("solveLinear");
+  const val = (f) => { try { const r = f(); return r.d === 1 ? String(r.n) : r.n + "/" + r.d; } catch (e) { return "ERR"; } };
+  const table = [["(-3)×4+5", "-7"], ["-3²", "-9"], ["(-3)²", "9"], ["(-2)⁴", "16"], ["6÷2x", "1", { x: 3 }], ["2(x+1)", "8", { x: 3 }],
+    ["2a²", "18", { a: -3 }], ["0.1+0.2", "3/10"], ["12÷(-4)-(-5)", "2"], ["１２÷３", "4"], ["3+", "ERR"], ["5÷0", "ERR"], ["x+1", "ERR"]];
+  for (const [e, want, vars] of table) { const got = val(() => E(e, vars || {})); if (got !== want) fails.push(`式の計算 ${e} が ${got}（正しくは ${want}）`); }
+  const eqs = [["3x+5=20", "5"], ["2(x-3)=x+4", "10"], ["x/3+1=4", "9"], ["5x=2x-9", "-3"], ["x²=4", "ERR"], ["2x=2x", "ERR"], ["x+y=3", "ERR"]];
+  for (const [e, want] of eqs) { const got = val(() => S(e)); if (got !== want) fails.push(`方程式 ${e} の解が ${got}（正しくは ${want}）`); }
+  const U = get("MATH_UNITS"), rint = get("rint");
+  for (const g of [U.seifu.genKihon, U.seifu.genStd]) for (let i = 0; i < 600; i++) {
+    const p = g(rint(1, 8)); const q = String(p.q).replace(/\s*=\s*$/, "");
+    let r; try { r = E(q); } catch (e) { continue; } // 文章の問題は飛ばす
+    if (r.d !== 1 || r.n !== p.a) { fails.push(`式の計算が正負の数の問題と合わない：${q}（${r.n}/${r.d}、答えは ${p.a}）`); break; }
+  }
+  for (const g of [U.houtei.genKihon, U.houtei.genStd]) for (let i = 0; i < 600; i++) {
+    const p = g(rint(1, 8)); let r; try { r = S(String(p.q).replace(/を解くと.*$/, "")); } catch (e) { continue; }
+    if (r.d !== 1 || r.n !== p.a) { fails.push(`方程式の計算が問題と合わない：${p.q}（${r.n}/${r.d}、答えは ${p.a}）`); break; }
+  }
+}
+
 const uniq = [...new Set(fails)];
 console.log("りのじかる 問題チェック\n" + report.map(r => "  " + r).join("\n"));
 if (uniq.length) {
